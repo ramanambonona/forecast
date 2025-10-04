@@ -257,7 +257,7 @@ def forecast_variable(df, col, periods, model_type, params):
         st.error(f"Données insuffisantes pour {col} (minimum 2 points)")
         return np.zeros(periods)
     
-    if model_type == "SSAE":
+    if model_type == "NAIVE":
         return forecast_ssae(series, periods)
     elif model_type == "AR(p)":
         p = params.get('p', 1)
@@ -592,7 +592,7 @@ def data_visualization_module():
                         st.write(f"• {rec}")
 
             model_type = st.selectbox("Modèle", [
-                "SSAE", "AR(p)", "ARIMA", "VAR", "ARDL", "Prophet", 
+                "NAIVE", "AR(p)", "ARIMA", "VAR", "ARDL", "Prophet", 
                 "Régression Linéaire", "Random Forest", "MLP", 
                 "Exponential Smoothing"
             ])
@@ -1208,4 +1208,5 @@ st.markdown("""
 if st.session_state.navigation_module == "Data":
     data_collection_module()
 elif st.session_state.navigation_module == "Prévision":
+
     data_visualization_module()
