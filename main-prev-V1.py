@@ -960,6 +960,19 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# Configuration pour désactiver les éléments de sidebar indésirables
+st.markdown("""
+    <script>
+        // Cache les éléments de contrôle de sidebar
+        window.addEventListener('load', function() {
+            setTimeout(function() {
+                const elements = document.querySelectorAll('[data-testid="collapsedControl"], [title*="arrow"]');
+                elements.forEach(el => el.style.display = 'none');
+            }, 100);
+        });
+    </script>
+""", unsafe_allow_html=True)
+
 LOGO_DATA_URI = "https://img.icons8.com/?size=1024&id=Hrn58QQNnrR5&format=png&color=000000"
 ICON_DATA_URI = "https://img.icons8.com/?size=1024&id=Hrn58QQNnrR5&format=png&color=000000"
 st.logo(
@@ -1234,3 +1247,4 @@ if st.session_state.navigation_module == "Data":
     data_collection_module()
 elif st.session_state.navigation_module == "Prévision":
     data_visualization_module()
+
