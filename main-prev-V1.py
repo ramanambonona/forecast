@@ -257,7 +257,7 @@ def forecast_variable(df, col, periods, model_type, params):
         st.error(f"Données insuffisantes pour {col} (minimum 2 points)")
         return np.zeros(periods)
     
-    if model_type == "NAIVE":
+    if model_type == "SSAE":
         return forecast_ssae(series, periods)
     elif model_type == "AR(p)":
         p = params.get('p', 1)
@@ -592,7 +592,7 @@ def data_visualization_module():
                         st.write(f"• {rec}")
 
             model_type = st.selectbox("Modèle", [
-                "NAIVE", "AR(p)", "ARIMA", "VAR", "ARDL", "Prophet", 
+                "SSAE", "AR(p)", "ARIMA", "VAR", "ARDL", "Prophet", 
                 "Régression Linéaire", "Random Forest", "MLP", 
                 "Exponential Smoothing"
             ])
@@ -969,7 +969,7 @@ st.logo(
     size="large"
 )
 
-# Style iOS minimaliste amélioré avec Garamond
+# Style iOS minimaliste amélioré avec Garamond - CORRIGÉ
 st.markdown("""
 <style>
 * {
@@ -978,6 +978,21 @@ st.markdown("""
 
 .stApp {
     background-color: #FFFFFF;
+}
+
+/* CORRECTION : Cache le bouton de sidebar problématique */
+[data-testid="collapsedControl"] {
+    display: none;
+}
+
+/* Cache l'icône keyboard_double_arrow_right */
+button[title="View fullscreen"] {
+    display: none !important;
+}
+
+/* Cache les éléments de contrôle de sidebar */
+.css-1d391kg {
+    display: none !important;
 }
 
 [data-testid="stSidebar"] {
@@ -1149,6 +1164,16 @@ h1, h2, h3 {
 .js-plotly-plot .plotly, .js-plotly-plot .plotly div {
     font-family: "Garamond", "Times New Roman", serif !important;
 }
+
+/* Cache les éléments de contrôle indésirables */
+.st-emotion-cache-1dp5vir {
+    display: none !important;
+}
+
+/* Ajuste l'espacement du contenu principal */
+.st-emotion-cache-1v0mbdj {
+    padding-top: 1rem;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -1208,5 +1233,4 @@ st.markdown("""
 if st.session_state.navigation_module == "Data":
     data_collection_module()
 elif st.session_state.navigation_module == "Prévision":
-
     data_visualization_module()
