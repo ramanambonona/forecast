@@ -1300,15 +1300,6 @@ def data_collection_module():
         except Exception as e:
             st.error(f"Erreur de traitement du fichier: {str(e)}")
 
-# === LOGO ET CONFIGURATION ===
-LOGO_DATA_URI = "https://img.icons8.com/?size=1024&id=Hrn58QQNnrR5&format=png&color=000000"
-ICON_DATA_URI = "https://img.icons8.com/?size=1024&id=Hrn58QQNnrR5&format=png&color=000000"
-st.logo(
-    image=LOGO_DATA_URI,          
-    link="https://ramanambonona.github.io/",
-    icon_image=ICON_DATA_URI,
-    size="large"
-)
 
 # === NAVIGATION ===
 with st.sidebar:
@@ -1348,3 +1339,4 @@ if st.session_state.navigation_module == "Data":
     data_collection_module()
 elif st.session_state.navigation_module == "Prévision":
     data_visualization_module()
+
