@@ -507,7 +507,7 @@ Ce projet est sous licence MIT. Voir le fichier [LICENSE](LICENSE) pour plus de 
 
 **Ramanambonona Ambinintsoa, Ph.D**
 
-| [![Mail](https://img.icons8.com/?size=100&id=86875&format=png&color=000000)](mailto:ambinintsoa.uat.ead2@gmail.com) | [![GitHub](https://img.icons8.com/?size=100&id=3tC9EQumUAuq&format=png&color=000000)](https://github.com/ramanambonona) | [![LinkedIn](https://img.icons8.com/?size=100&id=8808&format=png&color=000000)](https://www.linkedin.com/in/ambinintsoa-ramanambonona) |
+| [![Mail](https://img.icons8.com/?size=30&id=86875&format=png&color=000000)](mailto:ambinintsoa.uat.ead2@gmail.com) | [![GitHub](https://img.icons8.com/?size=30&id=3tC9EQumUAuq&format=png&color=000000)](https://github.com/ramanambonona) | [![LinkedIn](https://img.icons8.com/?size=30&id=8808&format=png&color=000000)](https://www.linkedin.com/in/ambinintsoa-ramanambonona) |
 | :---: | :---: | :---: |
 
 ---
