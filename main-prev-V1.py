@@ -64,6 +64,13 @@ button[kind="header"] {
 /* Police Garamond */
 :root { --ui-font: "Garamond","EB Garamond","Times New Roman",serif !important; }
 
+body, .stApp, .block-container,
+.stMarkdown, p, h1, h2, h3, h4, h5, h6,
+label, .stTextInput input, .stNumberInput input,
+.stSelectbox, .stDataFrame, .stButton > button,
+.stRadio, .stCheckbox, .stDateInput, .stMultiSelect {
+  font-family: var(--ui-font) !important;
+}
 [data-testid="collapsedControl"] span,
 [data-testid="collapsedControl"] i,
 [data-testid="collapsedControl"] .material-icons,
@@ -1352,4 +1359,5 @@ if st.session_state.navigation_module == "Data":
     data_collection_module()
 elif st.session_state.navigation_module == "Prévision":
     data_visualization_module()
+
 
