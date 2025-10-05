@@ -62,7 +62,7 @@ button[kind="header"] {
 }
 
 /* Police Garamond */
-:root { --ui-font: "Garamond","EB Garamond","Times New Roman",serif; }
+:root { --ui-font: "Garamond","EB Garamond","Times New Roman",serif !important; }
 
 /* Appliquer la police au texte et composants principaux, pas aux icônes */
 body, .stApp, .block-container,
@@ -1355,3 +1355,4 @@ if st.session_state.navigation_module == "Data":
     data_collection_module()
 elif st.session_state.navigation_module == "Prévision":
     data_visualization_module()
+
