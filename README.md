@@ -8,7 +8,7 @@
 
 **Une application intuitive et puissante pour l'analyse et la prévision de séries temporelles économiques**
 
-[Accéder à l'application](https://rama-forecast.streamlit.app/) • [Signaler un bug](https://github.com/votre-repo/issues) • [Documentation complète](#documentation)
+[Accéder à l'application](https://rama-forecast.streamlit.app/) • [Signaler un bug](https://github.com/ramanambonona/forecast) • [Documentation complète](#documentation)
 
 </div>
 
@@ -473,8 +473,8 @@ R :
 ### Besoin d'aide ?
 
 - **Documentation** : Consultez ce README en détail
-- **Issues GitHub** : [Signaler un bug](https://github.com/votre-repo/issues)
-- **Email** : support@votre-domaine.com
+- **Issues GitHub** : [Signaler un bug](https://github.com/ramanambonona/forecast)
+- **Email** : ambinintsoa.uat.ead2@gmail.com
 
 ### Contribuer
 
