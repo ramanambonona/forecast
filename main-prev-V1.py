@@ -61,25 +61,22 @@ button[kind="header"] {
     background-color: rgba(44, 44, 44, 0.1) !important;
 }
 
-/* Charger Garamond web */
-@import url('https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,600&display=swap');
+/* Police Garamond */
+:root { --ui-font: "Garamond","EB Garamond","Times New Roman",serif !important; }
 
-/* police UI */
-:root {
-  --ui-font: "EB Garamond", "Garamond", "Times New Roman", serif;
-}
-
-/* Mettre Garamond sur (quasi) tout le texte, y compris titres */
-.stApp * {
+/* Appliquer la police au texte et composants principaux, pas aux icônes */
+body, .stApp, .block-container,
+.stMarkdown, p, h1, h2, h3, h4, h5, h6,
+label, .stTextInput input, .stNumberInput input,
+.stSelectbox, .stDataFrame, .stButton>button {
   font-family: var(--ui-font) !important;
 }
 
-/* EXCEPTIONS : laisser la police Material aux icônes
-      (sinon Streamlit affiche le nom de l’icône en clair) */
+/* IMPORTANT : laisser les fonts Material pour les icônes Streamlit */
 .material-icons,
 .material-symbols-outlined,
 [data-testid="collapsedControl"] span {
-  font-family: 'Material Symbols Outlined','Material Icons';
+  font-family: 'Material Symbols Outlined' !important;
   font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
 }
 
@@ -1358,7 +1355,3 @@ if st.session_state.navigation_module == "Data":
     data_collection_module()
 elif st.session_state.navigation_module == "Prévision":
     data_visualization_module()
-
-
-
-
