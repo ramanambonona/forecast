@@ -18,6 +18,341 @@ from statsmodels.tsa.seasonal import seasonal_decompose
 import warnings
 warnings.filterwarnings('ignore')
 
+# === CONFIGURATION DE LA PAGE (DOIT ÊTRE EN PREMIER) ===
+st.set_page_config(
+    page_title="Prévisions",
+    page_icon="⚙️",
+    layout="wide",
+    initial_sidebar_state="expanded",
+    menu_items=None
+)
+
+# === CSS AMÉLIORÉ POUR MASQUER LES ÉLÉMENTS PROBLÉMATIQUES ===
+st.markdown("""
+<style>
+/* PRIORITÉ ABSOLUE : Masquer tous les éléments de contrôle de sidebar */
+[data-testid="collapsedControl"] {
+    display: none !important;
+    visibility: hidden !important;
+}
+
+button[kind="header"] {
+    display: none !important;
+}
+
+.css-1dp5vir {
+    display: none !important;
+}
+
+/* Masquer le texte keyboard_double_arrow_right */
+[data-testid="collapsedControl"] span,
+[data-testid="collapsedControl"]::before,
+[data-testid="collapsedControl"]::after {
+    display: none !important;
+    visibility: hidden !important;
+}
+
+/* Personnalisation de la barre d'outils Plotly */
+.modebar {
+    background-color: rgba(255, 255, 255, 0.9) !important;
+    border-radius: 8px;
+    padding: 4px;
+    backdrop-filter: blur(10px);
+}
+
+.modebar-btn {
+    transition: all 0.2s ease;
+}
+
+.modebar-btn:hover {
+    background-color: rgba(44, 44, 44, 0.1) !important;
+}
+
+/* Police Garamond pour tout */
+* {
+    font-family: "Garamond", "EB Garamond", "Times New Roman", serif !important;
+}
+
+/* Thème général */
+.stApp {
+    background-color: #FFFFFF;
+}
+
+/* Sidebar responsive */
+[data-testid="stSidebar"] {
+    background-color: rgba(248, 248, 248, 0.95) !important;
+    border-right: 1px solid rgba(229, 229, 229, 0.5);
+    backdrop-filter: blur(10px);
+    min-width: 250px !important;
+}
+
+@media (max-width: 768px) {
+    [data-testid="stSidebar"] {
+        min-width: 200px !important;
+    }
+}
+
+/* Titres */
+h1, h2, h3 {
+    color: #2C2C2C;
+    font-weight: 600;
+    letter-spacing: -0.3px;
+}
+
+@media (max-width: 768px) {
+    h1 { font-size: 1.8rem !important; }
+    h2 { font-size: 1.5rem !important; }
+    h3 { font-size: 1.3rem !important; }
+}
+
+/* Boutons iOS style */
+.stButton>button {
+    background-color: transparent !important;
+    color: #2C2C2C !important;
+    border: 1.5px solid rgba(44, 44, 44, 0.3) !important;
+    border-radius: 12px;
+    padding: 12px 24px;
+    font-weight: 500;
+    font-size: 15px;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(5px);
+    width: 100%;
+}
+
+@media (max-width: 768px) {
+    .stButton>button {
+        padding: 10px 16px;
+        font-size: 14px;
+    }
+}
+
+.stButton>button:hover {
+    background-color: rgba(44, 44, 44, 0.1) !important;
+    border-color: rgba(44, 44, 44, 0.7) !important;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.stButton>button[kind="primary"] {
+    background-color: rgba(44, 44, 44, 0.9) !important;
+    color: #FFFFFF !important;
+    border: 1.5px solid #2C2C2C !important;
+}
+
+.stButton>button[kind="primary"]:hover {
+    background-color: rgba(44, 44, 44, 0.7) !important;
+}
+
+/* Inputs responsive */
+.stTextInput>div>div>input,
+.stSelectbox>div>div>select,
+.stNumberInput>div>div>input {
+    border: 1px solid rgba(229, 229, 229, 0.7);
+    border-radius: 10px;
+    padding: 10px;
+    background-color: rgba(248, 248, 248, 0.8);
+    transition: all 0.3s ease;
+    font-size: 15px;
+}
+
+@media (max-width: 768px) {
+    .stTextInput>div>div>input,
+    .stSelectbox>div>div>select,
+    .stNumberInput>div>div>input {
+        font-size: 14px;
+        padding: 8px;
+    }
+}
+
+/* Tabs */
+.stTabs [data-baseweb="tab-list"] {
+    gap: 8px;
+    background-color: rgba(248, 248, 248, 0.8);
+    border-radius: 12px;
+    padding: 4px;
+    backdrop-filter: blur(5px);
+    flex-wrap: wrap;
+}
+
+@media (max-width: 768px) {
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 4px;
+    }
+    
+    .stTabs [data-baseweb="tab"] {
+        font-size: 13px;
+        padding: 8px 12px;
+    }
+}
+
+.stTabs [data-baseweb="tab"] {
+    border-radius: 8px;
+    color: #8E8E93;
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+.stTabs [aria-selected="true"] {
+    background-color: rgba(255, 255, 255, 0.9) !important;
+    color: #2C2C2C !important;
+}
+
+/* Metrics responsive */
+[data-testid="stMetricValue"] {
+    color: #2C2C2C;
+    font-size: 28px;
+    font-weight: 600;
+}
+
+@media (max-width: 768px) {
+    [data-testid="stMetricValue"] {
+        font-size: 22px;
+    }
+    
+    [data-testid="stMetricDelta"] {
+        font-size: 12px;
+    }
+}
+
+/* File uploader */
+[data-testid="stFileUploader"] {
+    border: 2px dashed rgba(229, 229, 229, 0.7);
+    border-radius: 12px;
+    padding: 20px;
+    background-color: rgba(250, 250, 250, 0.8);
+    backdrop-filter: blur(5px);
+}
+
+@media (max-width: 768px) {
+    [data-testid="stFileUploader"] {
+        padding: 15px;
+    }
+}
+
+/* DataFrames responsive */
+.stDataFrame {
+    border-radius: 12px;
+    overflow-x: auto;
+    border: 1px solid rgba(229, 229, 229, 0.5);
+}
+
+@media (max-width: 768px) {
+    .stDataFrame {
+        font-size: 12px;
+    }
+}
+
+/* Metric containers */
+[data-testid="metric-container"] {
+    border: 1px solid rgba(229, 229, 229, 0.5);
+    border-radius: 12px;
+    padding: 1rem;
+    background-color: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(5px);
+}
+
+@media (max-width: 768px) {
+    [data-testid="metric-container"] {
+        padding: 0.75rem;
+    }
+}
+
+/* Colonnes responsive */
+.row-widget.stHorizontal {
+    flex-wrap: wrap;
+}
+
+@media (max-width: 768px) {
+    .row-widget.stHorizontal > div {
+        min-width: 100% !important;
+        margin-bottom: 10px;
+    }
+}
+
+/* Plotly charts responsive - Afficher la barre d'outils */
+.js-plotly-plot {
+    width: 100% !important;
+}
+
+.js-plotly-plot .plotly .modebar {
+    display: flex !important;
+}
+
+@media (max-width: 768px) {
+    .js-plotly-plot .plotly {
+        font-size: 11px !important;
+    }
+    
+    .modebar {
+        right: 10px !important;
+        top: 10px !important;
+    }
+    
+    .modebar-btn {
+        width: 32px !important;
+        height: 32px !important;
+    }
+}
+
+/* Slider responsive */
+.stSlider {
+    padding: 0 10px;
+}
+
+@media (max-width: 768px) {
+    .stSlider {
+        padding: 0 5px;
+    }
+}
+
+/* Espacement du contenu principal */
+.main .block-container {
+    padding-top: 2rem;
+    padding-left: 1rem;
+    padding-right: 1rem;
+    max-width: 100%;
+}
+
+@media (max-width: 768px) {
+    .main .block-container {
+        padding-top: 1rem;
+        padding-left: 0.5rem;
+        padding-right: 0.5rem;
+    }
+}
+
+/* Navigation sidebar */
+[data-testid="stSidebar"] .stButton>button {
+    margin: 5px 0;
+}
+
+/* Alerts responsive */
+.stAlert {
+    border-radius: 12px;
+    border: none;
+    backdrop-filter: blur(5px);
+}
+
+@media (max-width: 768px) {
+    .stAlert {
+        font-size: 13px;
+        padding: 10px;
+    }
+}
+
+/* Expander responsive */
+.streamlit-expanderHeader {
+    font-size: 16px;
+}
+
+@media (max-width: 768px) {
+    .streamlit-expanderHeader {
+        font-size: 14px;
+    }
+}
+</style>
+""", unsafe_allow_html=True)
+
 # === FORMATAGE DES NOMBRES ===
 def format_number(value):
     """Formate les nombres en milliers, millions, milliards avec le format français"""
@@ -33,7 +368,7 @@ def format_number(value):
     elif abs_value >= 1_000:
         return f"{value / 1_000:,.1f} k MGA".replace(',', ' ').replace('.', ',')
     else:
-        return f"{value:,.1f}  MGA".replace(',', ' ').replace('.', ',')
+        return f"{value:,.1f} MGA".replace(',', ' ').replace('.', ',')
 
 # === ANALYSE DES SÉRIES TEMPORELLES ===
 def analyze_time_series(series):
@@ -46,19 +381,17 @@ def analyze_time_series(series):
     }
     
     try:
-        # Test de stationnarité simplifié (variation)
         if len(series) > 12:
             mean_first = series[:6].mean()
             mean_last = series[-6:].mean()
             variation = abs(mean_last - mean_first) / (abs(mean_first) + 1e-10)
             
-            if variation > 0.1:  # Seuil arbitraire
+            if variation > 0.1:
                 analysis['tendance'] = 'Détectée'
                 analysis['recommandations'].append('Présence de tendance - Modèles avec différenciation recommandés')
             else:
                 analysis['tendance'] = 'Faible'
         
-        # Détection de saisonnalité (autocorrélation)
         if len(series) >= 24:
             try:
                 decomposition = seasonal_decompose(series, period=12, model='additive', extrapolate_trend='freq')
@@ -73,7 +406,6 @@ def analyze_time_series(series):
             except:
                 pass
         
-        # Recommandations basées sur les caractéristiques
         if analysis['tendance'] == 'Détectée' and analysis['saisonnalite'] in ['Forte', 'Modérée']:
             analysis['recommandations'].append('ARIMA saisonnier, Prophet, Exponential Smoothing recommandés')
         elif analysis['tendance'] == 'Détectée':
@@ -134,12 +466,9 @@ def forecast_var(lag_order, series_dict, target_var, periods):
 
 def forecast_ardl(lags, series, exog=None, periods=1):
     try:
-        # Correction du problème ARDL
         if exog is not None:
-            # Si des variables exogènes sont fournies
             model = ARDL(series, lags=lags, exog=exog, order=0)
         else:
-            # Sans variables exogènes
             model = ARDL(series, lags=lags, order=0)
         
         model_fit = model.fit()
@@ -257,7 +586,7 @@ def forecast_variable(df, col, periods, model_type, params):
         st.error(f"Données insuffisantes pour {col} (minimum 2 points)")
         return np.zeros(periods)
     
-    if model_type == "SSAE":
+    if model_type == "NAIVE":
         return forecast_ssae(series, periods)
     elif model_type == "AR(p)":
         p = params.get('p', 1)
@@ -296,26 +625,15 @@ def forecast_variable(df, col, periods, model_type, params):
     elif model_type == "Random Forest":
         n_est = params.get('n_estimators', 100)
         max_d = params.get('max_depth', 10)
-        lags = min(12, len(series) // 2)
-        if lags < 1 or len(series) < lags + 10:
-            st.error(f"Données insuffisantes pour Random Forest (besoin de {lags + 10} points minimum)")
-            return np.zeros(periods)
         return forecast_random_forest(series, periods, n_est, max_d)
     elif model_type == "MLP":
         hidden_layers = params.get('hidden_layer_sizes', (100,))
         max_iter = params.get('max_iter', 200)
-        lags = min(12, len(series) // 2)
-        if lags < 1 or len(series) < lags + 10:
-            st.error(f"Données insuffisantes pour MLP (besoin de {lags + 10} points minimum)")
-            return np.zeros(periods)
         return forecast_mlp(series, periods, hidden_layers, max_iter)
     elif model_type == "Exponential Smoothing":
         trend = params.get('trend', 'add')
         seasonal = params.get('seasonal', 'add')
         sp = params.get('seasonal_periods', 12)
-        if len(series) < sp * 2:
-            st.error(f"Données insuffisantes pour Exponential Smoothing (besoin de {sp * 2} points minimum)")
-            return np.zeros(periods)
         return forecast_exponential_smoothing(series, periods, trend, seasonal, sp)
     else:
         st.error(f"Modèle {model_type} non supporté")
@@ -365,7 +683,6 @@ def data_visualization_module():
     
     for i, var in enumerate(key_vars):
         if var in df.columns:
-            # Calcul des valeurs
             series = df.set_index("Date")[var].dropna()
             if len(series) < 2:
                 latest = series.iloc[-1] if len(series) > 0 else 0
@@ -376,11 +693,9 @@ def data_visualization_module():
                 base_value = series.iloc[0]
                 delta_pct = ((latest - base_value) / base_value * 100) if base_value != 0 else 0.0
             
-            # Formatage des valeurs
             formatted_value = format_number(latest)
             base_year = df["Date"].iloc[0].year if len(df) > 0 else "N/A"
             
-            # Affichage avec le format approprié
             cols[i].metric(
                 var, 
                 formatted_value, 
@@ -400,29 +715,42 @@ def data_visualization_module():
                 labels={"value": "Valeur", "variable": "Variable"},
                 height=500
             )
-            st.plotly_chart(fig, use_container_width=True)
+            fig.update_layout(
+                font_family="Garamond",
+                hovermode='x unified'
+            )
+            st.plotly_chart(fig, use_container_width=True, config={
+                'displayModeBar': True,
+                'displaylogo': False,
+                'modeBarButtonsToRemove': ['lasso2d', 'select2d'],
+                'toImageButtonOptions': {
+                    'format': 'png',
+                    'filename': f'evolution_{"-".join(selected_vars)}',
+                    'height': 800,
+                    'width': 1200,
+                    'scale': 2
+                }
+            })
         else:
             st.info("Sélectionnez au moins une variable à visualiser")
 
     with tab2:
         st.subheader("Visualisation des Données")
         
-        # Sélection du type de graphique
         chart_type = st.selectbox(
             "Type de graphique",
             ["Barres Verticales", "Barres Horizontales", "Ligne", "Aire", "Histogramme", "Box Plot"]
         )
         
-        # Sélection des variables
         selected_vars = st.multiselect(
             "Variables à visualiser", 
             df.columns.drop("Date"),
-            default=[df.columns.drop("Date")[0]] if len(df.columns.drop("Date")) > 0 else None
+            default=[df.columns.drop("Date")[0]] if len(df.columns.drop("Date")) > 0 else None,
+            key="viz_vars"
         )
         
         if selected_vars:
             if chart_type == "Barres Verticales":
-                # Agrégation par année pour les barres
                 df_bar = df.copy()
                 df_bar['Année'] = df_bar['Date'].dt.year
                 df_annual = df_bar.groupby('Année')[selected_vars].mean().reset_index()
@@ -438,7 +766,6 @@ def data_visualization_module():
                 )
                 
             elif chart_type == "Barres Horizontales":
-                # Dernière valeur pour chaque variable
                 last_values = df[selected_vars].iloc[-1].sort_values()
                 fig = px.bar(
                     x=last_values.values,
@@ -470,7 +797,6 @@ def data_visualization_module():
                 )
                 
             elif chart_type == "Histogramme":
-                # Distribution des valeurs
                 fig = px.histogram(
                     df,
                     x=selected_vars[0],
@@ -490,9 +816,23 @@ def data_visualization_module():
                     height=500
                 )
             
-            st.plotly_chart(fig, use_container_width=True)
+            fig.update_layout(
+                font_family="Garamond",
+                hovermode='x unified'
+            )
+            st.plotly_chart(fig, use_container_width=True, config={
+                'displayModeBar': True,
+                'displaylogo': False,
+                'modeBarButtonsToRemove': ['lasso2d', 'select2d'],
+                'toImageButtonOptions': {
+                    'format': 'png',
+                    'filename': f'visualisation_{chart_type}',
+                    'height': 800,
+                    'width': 1200,
+                    'scale': 2
+                }
+            })
             
-            # Statistiques descriptives
             with st.expander("📊 Statistiques Descriptives"):
                 st.dataframe(
                     df[selected_vars].describe().round(2),
@@ -517,7 +857,6 @@ def data_visualization_module():
             if len(series) < 12:
                 st.warning("Données insuffisantes pour une analyse complète (minimum 12 points requis)")
             else:
-                # Analyse automatique
                 analysis = analyze_time_series(series)
                 
                 col1, col2, col3 = st.columns(3)
@@ -529,12 +868,10 @@ def data_visualization_module():
                 with col3:
                     st.metric("Points de données", len(series))
                 
-                # Affichage des recommandations
                 st.subheader("🎯 Recommandations de Modèles")
                 for recommendation in analysis['recommandations']:
                     st.write(f"• {recommendation}")
                 
-                # Décomposition de la série
                 st.subheader("📈 Décomposition de la Série")
                 try:
                     decomposition = seasonal_decompose(series, period=12, model='additive', extrapolate_trend='freq')
@@ -568,10 +905,23 @@ def data_visualization_module():
                     fig_decomp.update_layout(
                         title=f"Décomposition de {analysis_var}",
                         height=600,
-                        showlegend=True
+                        showlegend=True,
+                        font_family="Garamond",
+                        hovermode='x unified'
                     )
                     
-                    st.plotly_chart(fig_decomp, use_container_width=True)
+                    st.plotly_chart(fig_decomp, use_container_width=True, config={
+                        'displayModeBar': True,
+                        'displaylogo': False,
+                        'modeBarButtonsToRemove': ['lasso2d', 'select2d'],
+                        'toImageButtonOptions': {
+                            'format': 'png',
+                            'filename': f'decomposition_{analysis_var}',
+                            'height': 1000,
+                            'width': 1400,
+                            'scale': 2
+                        }
+                    })
                     
                 except Exception as e:
                     st.error(f"Erreur lors de la décomposition: {str(e)}")
@@ -581,7 +931,6 @@ def data_visualization_module():
         col1, col2 = st.columns([1, 3])
 
         with col1:
-            # Analyse automatique pour recommandation
             if "analysis_var" in st.session_state:
                 analysis_var = st.session_state.analysis_var
                 series = df.set_index("Date")[analysis_var].dropna()
@@ -592,7 +941,7 @@ def data_visualization_module():
                         st.write(f"• {rec}")
 
             model_type = st.selectbox("Modèle", [
-                "SSAE", "AR(p)", "ARIMA", "VAR", "ARDL", "Prophet", 
+                "NAIVE", "AR(p)", "ARIMA", "VAR", "ARDL", "Prophet", 
                 "Régression Linéaire", "Random Forest", "MLP", 
                 "Exponential Smoothing"
             ])
@@ -638,7 +987,6 @@ def data_visualization_module():
                         forecast = forecast_variable(df, indicator, periods, model_type, params)
                         future_dates = pd.date_range(start=df["Date"].max() + pd.offsets.DateOffset(months=1), periods=periods, freq='M')
                         
-                        # Création du dataframe complet avec historique + prévision
                         historical_df = df[["Date", indicator]].copy()
                         historical_df["Type"] = "Historique"
                         
@@ -650,7 +998,6 @@ def data_visualization_module():
                         
                         full_df = pd.concat([historical_df, forecast_df], ignore_index=True)
                         
-                        # Calcul de la précision
                         if len(series) >= 12:
                             train_size = len(series) - 12
                             train, test = series[:train_size], series[train_size:]
@@ -688,25 +1035,20 @@ def data_visualization_module():
                 full_df = st.session_state.forecast_data
                 indicator = st.session_state.forecast_variable
                 
-                # Séparation des données historiques et de prévision
                 historical_data = full_df[full_df["Type"] == "Historique"]
                 forecast_data = full_df[full_df["Type"] == "Prévision"]
                 
-                # Création du graphique avec courbe continue
                 fig = go.Figure()
                 
-                # Ajout de l'historique
                 fig.add_trace(go.Scatter(
                     x=historical_data["Date"],
                     y=historical_data[indicator],
                     mode='lines',
                     name='Historique',
-                    line=dict(color='green', width=0.7)
+                    line=dict(color='green', width=1.5)
                 ))
                 
-                # Ajout de la prévision (continue depuis la dernière date)
                 if len(historical_data) > 0 and len(forecast_data) > 0:
-                    # Concaténer le dernier point historique avec la prévision pour une courbe continue
                     last_historical = historical_data.iloc[-1]
                     continuous_forecast = pd.concat([
                         pd.DataFrame([{
@@ -722,7 +1064,7 @@ def data_visualization_module():
                         y=continuous_forecast[indicator],
                         mode='lines',
                         name='Prévision',
-                        line=dict(color='brown', width=0.7)
+                        line=dict(color='brown', width=1.5)
                     ))
                 
                 fig.update_layout(
@@ -730,25 +1072,24 @@ def data_visualization_module():
                     xaxis_title="Date",
                     yaxis_title="Valeur",
                     height=500,
-                    showlegend=True
+                    showlegend=True,
+                    font_family="Garamond",
+                    hovermode='x unified'
                 )
                 
-                # Ajout de la ligne verticale pour le début de la prévision
                 if len(historical_data) > 0:
                     last_historical_date = historical_data["Date"].max()
                     
-                    # Utilisation directe du timestamp pandas avec add_shape
                     fig.add_shape(
                         type="line",
                         x0=last_historical_date,
                         x1=last_historical_date,
                         y0=0,
                         y1=1,
-                        yref="paper",  # Référence paper pour couvrir tout le graphique
+                        yref="paper",
                         line=dict(color="gray", width=2, dash="dot")
                     )
                     
-                    # Ajout de l'annotation séparément
                     fig.add_annotation(
                         x=last_historical_date,
                         y=1,
@@ -763,7 +1104,18 @@ def data_visualization_module():
                         borderpad=4
                     )
                 
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, use_container_width=True, config={
+                    'displayModeBar': True,
+                    'displaylogo': False,
+                    'modeBarButtonsToRemove': ['lasso2d', 'select2d'],
+                    'toImageButtonOptions': {
+                        'format': 'png',
+                        'filename': f'prevision_{indicator}_{st.session_state.forecast_model}',
+                        'height': 800,
+                        'width': 1400,
+                        'scale': 2
+                    }
+                })
                 st.caption(f"Précision du modèle (MAPE): {st.session_state.mape:.2%}")
                 
                 if st.button("Exporter les prévisions (unique)"):
@@ -804,16 +1156,13 @@ def standardize_dataframe(df, orientation=None):
         df = df.set_index(first_col_name).T.reset_index()
         df.rename(columns={'index': 'Date'}, inplace=True)
     else:
-        # Chercher une colonne candidate de date
         date_regex = r'^(date|year|annee|année|period|période)$'
         candidates = [c for c in df.columns if re.search(date_regex, str(c), flags=re.IGNORECASE)]
         if candidates:
             date_col = candidates[0]
-            # Mettre la colonne candidate en première position
             cols = list(df.columns)
             cols.insert(0, cols.pop(cols.index(date_col)))
             df = df[cols]
-        # Renommer la 1re colonne en 'Date' si besoin
         if df.columns[0] != 'Date':
             df.rename(columns={df.columns[0]: 'Date'}, inplace=True)
 
@@ -929,7 +1278,6 @@ def data_collection_module():
             df_processed = clean_and_convert_dates(df_processed)
             df_processed = validate_numeric_columns(df_processed)
 
-            
             display_data_summary(df_processed)
             
             st.subheader("Aperçu des données traitées")
@@ -952,27 +1300,7 @@ def data_collection_module():
         except Exception as e:
             st.error(f"Erreur de traitement du fichier: {str(e)}")
 
-# === STREAMLIT APP ===
-st.set_page_config(
-    page_title="Prévisions",
-    page_icon="⚙️",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
-
-# Configuration pour désactiver les éléments de sidebar indésirables
-st.markdown("""
-    <script>
-        // Cache les éléments de contrôle de sidebar
-        window.addEventListener('load', function() {
-            setTimeout(function() {
-                const elements = document.querySelectorAll('[data-testid="collapsedControl"], [title*="arrow"]');
-                elements.forEach(el => el.style.display = 'none');
-            }, 100);
-        });
-    </script>
-""", unsafe_allow_html=True)
-
+# === LOGO ET CONFIGURATION ===
 LOGO_DATA_URI = "https://img.icons8.com/?size=1024&id=Hrn58QQNnrR5&format=png&color=000000"
 ICON_DATA_URI = "https://img.icons8.com/?size=1024&id=Hrn58QQNnrR5&format=png&color=000000"
 st.logo(
@@ -982,234 +1310,14 @@ st.logo(
     size="large"
 )
 
-# Style iOS minimaliste amélioré avec Garamond - CORRIGÉ
-st.markdown("""
-<style>
-* {
-    font-family: "Garamond", "Times New Roman", serif !important;
-}
-
-.stApp {
-    background-color: #FFFFFF;
-}
-
-/* CORRECTION : Cache le bouton de sidebar problématique */
-[data-testid="collapsedControl"] {
-    display: none;
-}
-
-/* Cache l'icône keyboard_double_arrow_right */
-button[title="View fullscreen"] {
-    display: none !important;
-}
-
-/* Cache les éléments de contrôle de sidebar */
-.css-1d391kg {
-    display: none !important;
-}
-
-[data-testid="stSidebar"] {
-    background-color: rgba(248, 248, 248, 0.95) !important;
-    border-right: 1px solid rgba(229, 229, 229, 0.5);
-    backdrop-filter: blur(10px);
-}
-
-[data-testid="stSidebarNav"] {
-    background-color: transparent !important;
-}
-
-[data-testid="stSidebarNavItems"] {
-    background-color: transparent !important;
-}
-
-h1, h2, h3 {
-    color: #2C2C2C;
-    font-weight: 600;
-    letter-spacing: -0.3px;
-}
-
-.stButton>button {
-    background-color: transparent !important;
-    color: #2C2C2C !important;
-    border: 1.5px solid rgba(44, 44, 44, 0.3) !important;
-    border-radius: 12px;
-    padding: 12px 24px;
-    font-weight: 500;
-    font-size: 15px;
-    transition: all 0.3s ease;
-    backdrop-filter: blur(5px);
-}
-
-.stButton>button:hover {
-    background-color: rgba(44, 44, 44, 0.1) !important;
-    border-color: rgba(44, 44, 44, 0.7) !important;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-}
-
-.stButton>button[kind="primary"] {
-    background-color: rgba(44, 44, 44, 0.9) !important;
-    color: #FFFFFF !important;
-    border: 1.5px solid #2C2C2C !important;
-}
-
-.stButton>button[kind="primary"]:hover {
-    background-color: rgba(44, 44, 44, 0.7) !important;
-    border-color: rgba(44, 44, 44, 0.9) !important;
-}
-
-.stTextInput>div>div>input,
-.stSelectbox>div>div>select,
-.stNumberInput>div>div>input {
-    border: 1px solid rgba(229, 229, 229, 0.7);
-    border-radius: 10px;
-    padding: 10px;
-    background-color: rgba(248, 248, 248, 0.8);
-    transition: all 0.3s ease;
-}
-
-.stTextInput>div>div>input:focus,
-.stSelectbox>div>div>select:focus,
-.stNumberInput>div>div>input:focus {
-    border-color: rgba(44, 44, 44, 0.5);
-    box-shadow: 0 0 0 2px rgba(44, 44, 44, 0.1);
-}
-
-.stTabs [data-baseweb="tab-list"] {
-    gap: 8px;
-    background-color: rgba(248, 248, 248, 0.8);
-    border-radius: 12px;
-    padding: 4px;
-    backdrop-filter: blur(5px);
-}
-
-.stTabs [data-baseweb="tab"] {
-    border-radius: 8px;
-    color: #8E8E93;
-    font-weight: 500;
-    transition: all 0.3s ease;
-}
-
-.stTabs [aria-selected="true"] {
-    background-color: rgba(255, 255, 255, 0.9) !important;
-    color: #2C2C2C !important;
-    backdrop-filter: blur(5px);
-}
-
-[data-testid="stMetricValue"] {
-    color: #2C2C2C;
-    font-size: 28px;
-    font-weight: 600;
-}
-
-[data-testid="stFileUploader"] {
-    border: 2px dashed rgba(229, 229, 229, 0.7);
-    border-radius: 12px;
-    padding: 20px;
-    background-color: rgba(250, 250, 250, 0.8);
-    backdrop-filter: blur(5px);
-    transition: all 0.3s ease;
-}
-
-[data-testid="stFileUploader"]:hover {
-    border-color: rgba(44, 44, 44, 0.3);
-}
-
-.stDataFrame {
-    border-radius: 12px;
-    overflow: hidden;
-    border: 1px solid rgba(229, 229, 229, 0.5);
-}
-
-.stProgress > div > div {
-    background-color: rgba(44, 44, 44, 0.8);
-}
-
-.stAlert {
-    border-radius: 12px;
-    border: none;
-    backdrop-filter: blur(5px);
-}
-
-.stSlider>div>div>div>div {
-    background-color: rgba(44, 44, 44, 0.8);
-}
-
-/* Navigation buttons in sidebar */
-[data-testid="stSidebar"] .stButton>button {
-    background-color: transparent !important;
-    color: #2C2C2C !important;
-    border: 1.5px solid rgba(44, 44, 44, 0.2) !important;
-    margin: 5px 0;
-    width: 100%;
-}
-
-[data-testid="stSidebar"] .stButton>button:hover {
-    background-color: rgba(44, 44, 44, 0.05) !important;
-    border-color: rgba(44, 44, 44, 0.5) !important;
-}
-
-[data-testid="stSidebar"] .stButton>button[kind="primary"] {
-    background-color: rgba(44, 44, 44, 0.1) !important;
-    color: #2C2C2C !important;
-    border: 1.5px solid rgba(44, 44, 44, 0.5) !important;
-}
-
-[data-testid="stSidebar"] .stButton>button[kind="primary"]:hover {
-    background-color: rgba(44, 44, 44, 0.15) !important;
-}
-
-/* Main content area */
-.main .block-container {
-    padding-top: 2rem;
-}
-
-/* Cards and metrics */
-[data-testid="metric-container"] {
-    border: 1px solid rgba(229, 229, 229, 0.5);
-    border-radius: 12px;
-    padding: 1rem;
-    background-color: rgba(255, 255, 255, 0.7);
-    backdrop-filter: blur(5px);
-}
-
-/* Plotly chart styling */
-.js-plotly-plot .plotly, .js-plotly-plot .plotly div {
-    font-family: "Garamond", "Times New Roman", serif !important;
-}
-
-/* Cache les éléments de contrôle indésirables */
-.st-emotion-cache-1dp5vir {
-    display: none !important;
-}
-
-/* Ajuste l'espacement du contenu principal */
-.st-emotion-cache-1v0mbdj {
-    padding-top: 1rem;
-}
-</style>
-""", unsafe_allow_html=True)
-
-ICON_URL_DATA = "https://img.icons8.com/?size=100&id=L6dRdwunqPlM&format=png&color=000000"
-
-# Navigation améliorée avec sidebar toujours visible
+# === NAVIGATION ===
 with st.sidebar:
-    st.markdown("""
-    <style>
-    [data-testid="stSidebar"] {
-        min-width: 250px;
-        max-width: 250px;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-    
     st.title("🌊 Navigation")
     st.divider()
     
     if "navigation_module" not in st.session_state:
         st.session_state.navigation_module = "Data"
     
-    # Boutons de navigation stylisés
     col_nav1, col_nav2 = st.columns([1, 1])
     
     with col_nav1:
@@ -1230,21 +1338,13 @@ with st.sidebar:
     
     st.divider()
     
-    # Informations supplémentaires dans la sidebar
     if "data_uploaded" in st.session_state and st.session_state.data_uploaded:
         st.success("✅ Données chargées")
         if "upload_timestamp" in st.session_state:
             st.caption(f"Dernière mise à jour: {st.session_state.upload_timestamp.strftime('%H:%M - %d/%m/%Y')}")
 
-# Main content avec meilleur espacement
-st.markdown("""
-<div class="main">
-</div>
-""", unsafe_allow_html=True)
-
-# Contenu principal
+# === CONTENU PRINCIPAL ===
 if st.session_state.navigation_module == "Data":
     data_collection_module()
 elif st.session_state.navigation_module == "Prévision":
     data_visualization_module()
-
