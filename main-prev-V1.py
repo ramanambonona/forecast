@@ -64,21 +64,18 @@ button[kind="header"] {
 /* Police Garamond */
 :root { --ui-font: "Garamond","EB Garamond","Times New Roman",serif !important; }
 
-/* Appliquer la police au texte et composants principaux, pas aux icônes */
-body, .stApp, .block-container,
-.stMarkdown, p, h1, h2, h3, h4, h5, h6,
-label, .stTextInput input, .stNumberInput input,
-.stSelectbox, .stDataFrame, .stButton>button {
-  font-family: var(--ui-font) !important;
-}
-
-/* IMPORTANT : laisser les fonts Material pour les icônes Streamlit */
-.material-icons,
-.material-symbols-outlined,
-[data-testid="collapsedControl"] span {
-  font-family: 'Material Symbols Outlined' !important;
+[data-testid="collapsedControl"] span,
+[data-testid="collapsedControl"] i,
+[data-testid="collapsedControl"] .material-icons,
+[data-testid="collapsedControl"] .material-symbols-outlined {
+  font-family: 'Material Symbols Outlined','Material Icons' !important;
+  /* paramètres de rendu des Material Symbols */
   font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  font-style: normal; font-weight: 400; line-height: 1;
+  letter-spacing: normal; text-transform: none; white-space: nowrap;
+  -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
 }
+[data-testid="collapsedControl"] { display: flex !important; }
 
 /* Thème général */
 .stApp {
@@ -1355,3 +1352,4 @@ if st.session_state.navigation_module == "Data":
     data_collection_module()
 elif st.session_state.navigation_module == "Prévision":
     data_visualization_module()
+
