@@ -69,7 +69,7 @@ body, .stApp, .block-container,
 .stMarkdown, p, h1, h2, h3, h4, h5, h6,
 label, .stTextInput input, .stNumberInput input,
 .stSelectbox, .stDataFrame, .stButton>button {
-  font-family: var(--ui-font);
+  font-family: var(--ui-font) !important;
 }
 
 /* IMPORTANT : laisser les fonts Material pour les icônes Streamlit */
@@ -1355,4 +1355,5 @@ if st.session_state.navigation_module == "Data":
     data_collection_module()
 elif st.session_state.navigation_module == "Prévision":
     data_visualization_module()
+
 
