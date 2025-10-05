@@ -79,7 +79,7 @@ button[kind="header"] {
 .material-icons,
 .material-symbols-outlined,
 [data-testid="collapsedControl"] span {
-  font-family: 'Material Symbols Outlined','Material Icons' !important;
+  font-family: 'Material Symbols Outlined','Material Icons';
   font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
 }
 
@@ -1358,6 +1358,7 @@ if st.session_state.navigation_module == "Data":
     data_collection_module()
 elif st.session_state.navigation_module == "Prévision":
     data_visualization_module()
+
 
 
 
