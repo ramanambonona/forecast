@@ -62,35 +62,33 @@ button[kind="header"] {
 }
 
 /* Police Garamond */
-* {
-    font-family: "Garamond", "EB Garamond", "Times New Roman", serif !important;
-}
-/* Charger la police d'icônes (nécessaire sur Streamlit Cloud) */
-@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200');
+/* 0) Variable de police UI (NE PAS mettre !important dans la valeur d'une var CSS) */
+:root { --ui-font: "EB Garamond","Garamond","Times New Roman",serif; }
 
-/* === Exception UNIQUE : icône du bouton qui ouvre/ferme la sidebar === */
-/* 1) Streamlit récent: le bouton a data-testid="collapsedControl" */
-html body [data-testid="collapsedControl"],
-html body [data-testid="collapsedControl"] * {
+/* 1) Garamond pour tout le texte (titres, labels, inputs, tables, boutons, etc.) */
+body, .stApp, .block-container,
+.stMarkdown, p, h1, h2, h3, h4, h5, h6,
+label, .stTextInput input, .stNumberInput input,
+.stSelectbox, .stDataFrame, .stButton > button,
+.stRadio, .stCheckbox, .stDateInput, .stMultiSelect {
+  font-family: var(--ui-font) !important;
+}
+
+/* 2) Exception ULTRA ciblée : SEULE l’icône du bouton de toggle sidebar garde la police Material */
+[data-testid="collapsedControl"] span,
+[data-testid="collapsedControl"] i,
+[data-testid="collapsedControl"] .material-icons,
+[data-testid="collapsedControl"] .material-symbols-outlined {
   font-family: 'Material Symbols Outlined','Material Icons' !important;
-  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24 !important;
-  font-style: normal !important; font-weight: 400 !important; line-height: 1 !important;
-  letter-spacing: normal !important; text-transform: none !important; white-space: nowrap !important;
+  /* paramètres de rendu des Material Symbols */
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  font-style: normal; font-weight: 400; line-height: 1;
+  letter-spacing: normal; text-transform: none; white-space: nowrap;
   -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
 }
 
-/* 2) Fallback si ton build ne garde pas data-testid :
-      on cible un bouton dont l'aria-label ou le title mentionne "sidebar" (insensible à la casse) */
-html body button[aria-label*="sidebar" i],
-html body button[aria-label*="sidebar" i] *,
-html body button[title*="sidebar" i],
-html body button[title*="sidebar" i] * {
-  font-family: 'Material Symbols Outlined','Material Icons' !important;
-  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24 !important;
-}
-
-/* Sécurité : ne pas masquer le bouton */
-[data-testid="collapsedControl"] { display: inline-flex !important; }
+/* (optionnel) s’assurer que le bouton n’est pas masqué */
+[data-testid="collapsedControl"] { display: flex !important; }
 
 /* Thème général */
 .stApp {
@@ -1367,6 +1365,7 @@ if st.session_state.navigation_module == "Data":
     data_collection_module()
 elif st.session_state.navigation_module == "Prévision":
     data_visualization_module()
+
 
 
 
