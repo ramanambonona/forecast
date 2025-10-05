@@ -6,7 +6,7 @@
 [![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg?style=for-the-badge)](LICENSE)
 
-**Une application intuitive et puissante pour l'analyse et la prévision de séries temporelles économiques**
+**Une application intuitive et pratique pour l'analyse et la prévision de séries temporelles économiques**
 
 [Accéder à l'application](https://rama-forecast.streamlit.app/) • [Signaler un bug](https://github.com/ramanambonona/forecast) • [Documentation complète](#documentation)
 
