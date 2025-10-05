@@ -367,6 +367,61 @@ h1, h2, h3 {
         font-size: 14px;
     }
 }
+/* Footer perso (bas-centre) */
+.custom-footer {
+  position: fixed;
+  left: 50%;
+  bottom: 10px;
+  transform: translateX(-50%);
+  z-index: 1001;
+
+  background: rgba(255,255,255,0.65);
+  border: 1px solid rgba(229,229,229,.6);
+  border-radius: 12px;
+  padding: 8px 12px;
+
+  display: flex;
+  align-items: center;
+  gap: 12px;
+
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+}
+
+.custom-footer .footnote {
+  margin: 0;
+  color:#2C2C2C;
+  font-size: 13px;
+  text-align: center;
+}
+
+.custom-footer .social {
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+
+.custom-footer .social img {
+  height:18px;
+  width:18px;
+  filter: grayscale(100%);
+  opacity:.85;
+  transition: opacity .2s;
+}
+
+.custom-footer .social img:hover { opacity:1; }
+
+/* Responsive : garde le footer centré et lisible sur mobile */
+@media (max-width: 640px) {
+  .custom-footer{
+    width: calc(100% - 24px);
+    padding: 8px 10px;
+    bottom: 8px;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -1366,8 +1421,19 @@ if st.session_state.navigation_module == "Data":
 elif st.session_state.navigation_module == "Prévision":
     data_visualization_module()
 
-
-
-
-
-
+st.markdown("""
+<div class="custom-footer">
+  <p class="footnote">Ramanambonona Ambinintsoa, Ph.D</p>
+  <div class="social">
+    <a href="mailto:ambinintsoa.uat.ead2@gmail.com" aria-label="Mail">
+      <img src="https://img.icons8.com/?size=100&id=86875&format=png&color=000000" alt="Mail">
+    </a>
+    <a href="https://github.com/ramanambonona" target="_blank" rel="noopener" aria-label="GitHub">
+      <img src="https://img.icons8.com/?size=100&id=3tC9EQumUAuq&format=png&color=000000" alt="GitHub">
+    </a>
+    <a href="https://www.linkedin.com/in/ambinintsoa-ramanambonona" target="_blank" rel="noopener" aria-label="LinkedIn">
+      <img src="https://img.icons8.com/?size=100&id=8808&format=png&color=000000" alt="LinkedIn">
+    </a>
+  </div>
+</div>
+""", unsafe_allow_html=True)
