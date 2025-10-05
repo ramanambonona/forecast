@@ -65,18 +65,32 @@ button[kind="header"] {
 * {
     font-family: "Garamond", "EB Garamond", "Times New Roman", serif !important;
 }
-[data-testid="collapsedControl"] span,
-[data-testid="collapsedControl"] i,
-[data-testid="collapsedControl"] .material-icons,
-[data-testid="collapsedControl"] .material-symbols-outlined {
+/* Charger la police d'icônes (nécessaire sur Streamlit Cloud) */
+@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200');
+
+/* === Exception UNIQUE : icône du bouton qui ouvre/ferme la sidebar === */
+/* 1) Streamlit récent: le bouton a data-testid="collapsedControl" */
+html body [data-testid="collapsedControl"],
+html body [data-testid="collapsedControl"] * {
   font-family: 'Material Symbols Outlined','Material Icons' !important;
-  /* paramètres de rendu des Material Symbols */
-  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
-  font-style: normal; font-weight: 400; line-height: 1;
-  letter-spacing: normal; text-transform: none; white-space: nowrap;
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24 !important;
+  font-style: normal !important; font-weight: 400 !important; line-height: 1 !important;
+  letter-spacing: normal !important; text-transform: none !important; white-space: nowrap !important;
   -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
 }
-[data-testid="collapsedControl"] { display: flex !important; }
+
+/* 2) Fallback si ton build ne garde pas data-testid :
+      on cible un bouton dont l'aria-label ou le title mentionne "sidebar" (insensible à la casse) */
+html body button[aria-label*="sidebar" i],
+html body button[aria-label*="sidebar" i] *,
+html body button[title*="sidebar" i],
+html body button[title*="sidebar" i] * {
+  font-family: 'Material Symbols Outlined','Material Icons' !important;
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24 !important;
+}
+
+/* Sécurité : ne pas masquer le bouton */
+[data-testid="collapsedControl"] { display: inline-flex !important; }
 
 /* Thème général */
 .stApp {
@@ -1353,6 +1367,7 @@ if st.session_state.navigation_module == "Data":
     data_collection_module()
 elif st.session_state.navigation_module == "Prévision":
     data_visualization_module()
+
 
 
 
