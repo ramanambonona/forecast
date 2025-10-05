@@ -44,13 +44,6 @@ button[kind="header"] {
     display: none !important;
 }
 
-/* Masquer le texte keyboard_double_arrow_right */
-[data-testid="collapsedControl"] span,
-[data-testid="collapsedControl"]::before,
-[data-testid="collapsedControl"]::after {
-    display: none !important;
-    visibility: hidden !important;
-}
 
 /* Personnalisation de la barre d'outils Plotly */
 .modebar {
@@ -68,9 +61,23 @@ button[kind="header"] {
     background-color: rgba(44, 44, 44, 0.1) !important;
 }
 
-/* Police Garamond pour tout */
-* {
-    font-family: "Garamond", "EB Garamond", "Times New Roman", serif !important;
+/* Police Garamond */
+:root { --ui-font: "Garamond","EB Garamond","Times New Roman",serif; }
+
+/* Appliquer la police au texte et composants principaux, pas aux icônes */
+body, .stApp, .block-container,
+.stMarkdown, p, h1, h2, h3, h4, h5, h6,
+label, .stTextInput input, .stNumberInput input,
+.stSelectbox, .stDataFrame, .stButton>button {
+  font-family: var(--ui-font);
+}
+
+/* IMPORTANT : laisser les fonts Material pour les icônes Streamlit */
+.material-icons,
+.material-symbols-outlined,
+[data-testid="collapsedControl"] span {
+  font-family: 'Material Symbols Outlined' !important;
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
 }
 
 /* Thème général */
@@ -1348,5 +1355,3 @@ if st.session_state.navigation_module == "Data":
     data_collection_module()
 elif st.session_state.navigation_module == "Prévision":
     data_visualization_module()
-
-
