@@ -65,7 +65,7 @@ button[kind="header"] {
 /* 0) Variable de police UI (NE PAS mettre !important dans la valeur d'une var CSS) */
 :root { --ui-font: "EB Garamond","Garamond","Times New Roman",serif; }
 
-/* 1) Garamond pour tout le texte (titres, labels, inputs, tables, boutons, etc.) */
+/* 1) Garamond (titres, labels, inputs, tables, boutons, etc.) */
 body, .stApp, .block-container,
 .stMarkdown, p, h1, h2, h3, h4, h5, h6,
 label, .stTextInput input, .stNumberInput input,
@@ -74,7 +74,7 @@ label, .stTextInput input, .stNumberInput input,
   font-family: var(--ui-font) !important;
 }
 
-/* 2) Exception ULTRA ciblée : SEULE l’icône du bouton de toggle sidebar garde la police Material */
+/* 2) Exception */
 [data-testid="collapsedControl"] span,
 [data-testid="collapsedControl"] i,
 [data-testid="collapsedControl"] .material-icons,
@@ -87,7 +87,7 @@ label, .stTextInput input, .stNumberInput input,
   -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
 }
 
-/* (optionnel) s’assurer que le bouton n’est pas masqué */
+/* (optionnel)*/
 [data-testid="collapsedControl"] { display: flex !important; }
 
 /* Thème général */
@@ -1365,6 +1365,7 @@ if st.session_state.navigation_module == "Data":
     data_collection_module()
 elif st.session_state.navigation_module == "Prévision":
     data_visualization_module()
+
 
 
 
