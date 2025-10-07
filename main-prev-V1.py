@@ -442,6 +442,45 @@ def format_number(value):
     else:
         return f"{value:,.1f} MGA".replace(',', ' ').replace('.', ',')
 
+# === MAPPE STATUS HELPER (NOUVELLE FONCTION) ===
+def get_mape_status_html(mape_value):
+    """Détermine la couleur et l'étiquette de qualité du modèle basée sur le MAPE."""
+    if mape_value < 0.10: # < 10%
+        color = "#28a745" # Green
+        label = "🟢 Excellent"
+    elif mape_value <= 0.20: # 10% à 20%
+        color = "#ffc107" # Orange
+        label = "🟠 Bon"
+    else: # > 20%
+        color = "#dc3545" # Red
+        label = "🔴 Mauvais"
+    
+    # Utilisation d'un conteneur Markdown/HTML pour un affichage stylisé
+    html = f"""
+    <div style="
+        display: flex; 
+        align-items: center; 
+        gap: 10px; 
+        margin-top: 5px; 
+        font-family: var(--ui-font);
+        font-size: 16px;
+        font-weight: 500;
+        color: #2C2C2C;
+    ">
+        <span>Précision du modèle (MAPE): <strong style="color: #2C2C2C; font-size: 1.1em;">{mape_value:.2%}</strong></span>
+        <span style="
+            background-color: {color}20; 
+            color: {color}; 
+            padding: 4px 8px; 
+            border-radius: 6px; 
+            font-weight: 600;
+            font-size: 0.9em;
+        ">{label}</span>
+    </div>
+    """
+    return html
+
+
 # === ANALYSE DES SÉRIES TEMPORELLES ===
 def analyze_time_series(series):
     """Analyse une série temporelle pour déterminer ses caractéristiques"""
@@ -707,7 +746,6 @@ def forecast_variable(df, col, periods, model_type, params):
         st.error(f"Modèle {model_type} non supporté")
         return np.zeros(periods)
 
-# NOUVELLE FONCTION POUR GÉRER L'ORIENTATION DE L'EXPORT
 def generate_forecast_df(df, periods, model_type, params, orientation="dates_in_rows"):
     if "Date" not in df.columns:
         st.error("La colonne 'Date' est manquante dans les données")
@@ -1080,7 +1118,8 @@ def data_visualization_module():
                     if len(series) < min_required:
                         st.error(f"Données insuffisantes pour {model_type} (besoin de {min_required} points minimum)")
                     else:
-                        forecast = forecast_variable(df[["Date", indicator]], indicator, periods, model_type, params) # Ne passe que les colonnes nécessaires
+                        # 1. Prévision pour l'indicateur sélectionné
+                        forecast = forecast_variable(df[["Date", indicator]], indicator, periods, model_type, params)
                         future_dates = pd.date_range(start=df["Date"].max() + pd.offsets.DateOffset(months=1), periods=periods, freq='M')
                         
                         historical_df = pd.DataFrame({"Date": df["Date"], indicator: df[indicator], "Type": "Historique"})
@@ -1093,15 +1132,22 @@ def data_visualization_module():
                         
                         full_df = pd.concat([historical_df, forecast_df], ignore_index=True)
                         
+                        # 2. Calcul du MAPE (Validation sur les 12 dernières périodes)
                         if len(series) >= 12:
                             train_size = len(series) - 12
                             train, test = series[:train_size], series[train_size:]
                             train_df = df[["Date", indicator]].iloc[:train_size].copy()
+                            # Pour le calcul du MAPE, on fait la prévision sur 12 périodes à partir de l'ensemble d'entraînement
                             train_forecast = forecast_variable(train_df, indicator, 12, model_type, params)
+                            
                             # Assurer que les longueurs correspondent pour le MAPE
-                            mape = mean_absolute_percentage_error(test, train_forecast) if len(train_forecast) == len(test) and len(test) > 0 else 0.1
+                            if len(train_forecast) == len(test) and len(test) > 0:
+                                mape = mean_absolute_percentage_error(test, train_forecast) 
+                            else:
+                                # Fallback ou MAPE par défaut si la validation est impossible
+                                mape = 0.5 # Mauvaise valeur par défaut pour alerter
                         else:
-                            mape = 0.1
+                            mape = 0.5 # Mauvaise valeur par défaut si données trop courtes
                             
                         st.session_state.forecast_data = full_df
                         st.session_state.mape = mape
@@ -1220,13 +1266,18 @@ def data_visualization_module():
                         'scale': 2
                     }
                 })
-                st.caption(f"Précision du modèle (MAPE): {st.session_state.mape:.2%}")
+                
+                # --- NOUVEL AFFICHAGE DU MAPE AVEC CODE COULEUR ---
+                mape_value = st.session_state.mape
+                mape_html = get_mape_status_html(mape_value)
+                st.markdown(mape_html, unsafe_allow_html=True)
+                # --- FIN NOUVEL AFFICHAGE ---
                 
                 # --- NOUVELLE LOGIQUE DEMANDÉE : SÉLECTION DE VARIABLES + TRANSPOSITION ---
                 st.divider()
                 st.subheader("Options d'Exportation Personnalisée")
                 
-                # 1. Sélection des variables (remplace l'ancien sélecteur Historique/Prévision)
+                # 1. Sélection des variables 
                 all_vars = df.columns.drop("Date").tolist()
                 selected_export_vars = st.multiselect(
                     "Sélectionner les variables à inclure dans l'export",
