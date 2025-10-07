@@ -1506,8 +1506,8 @@ def data_collection_module():
             st.error(f"Erreur de traitement du fichier: {str(e)}")
 
 # === LOGO ET CONFIGURATION ===
-LOGO_DATA_URI = "https://img.icons8.com/?size=1024&id=Hrn58QQNnrR5&format=png&color=000000"
-ICON_DATA_URI = "https://img.icons8.com/?size=1024&id=Hrn58QQNnrR5&format=png&color=000000"
+LOGO_DATA_URI = "https://img.icons8.com/?size=1024&id=7820&format=png&color=000000"
+ICON_DATA_URI = "https://img.icons8.com/?size=1024&id=7820&format=png&color=000000"
 st.logo(
     image=LOGO_DATA_URI,          
     link="https://ramanambonona.github.io/",
@@ -1517,7 +1517,7 @@ st.logo(
 
 # === NAVIGATION ===
 with st.sidebar:
-    st.title("🌊 Navigation")
+    st.title("🎯 Prévisions")
     st.divider()
     
     if "navigation_module" not in st.session_state:
@@ -1570,3 +1570,4 @@ st.markdown("""
   </div>
 </div>
 """, unsafe_allow_html=True)
+
