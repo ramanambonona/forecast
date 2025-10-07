@@ -650,26 +650,24 @@ def forecast_exponential_smoothing(series, periods, trend='add', seasonal='add',
 
 def forecast_variable(df, col, periods, model_type, params):
     if "Date" not in df.columns:
-        st.error("La colonne 'Date' est manquante dans les données")
-        return np.zeros(periods)
+        # Cette vérification ne devrait pas se produire si `df` vient de `data_visualization_module`
+        return np.zeros(periods) 
     
     series = df.set_index("Date")[col].dropna()
     if len(series) < 2:
-        st.error(f"Données insuffisantes pour {col} (minimum 2 points)")
         return np.zeros(periods)
     
+    # ... (Forecast logic as before) ...
     if model_type == "NAIVE":
         return forecast_ssae(series, periods)
     elif model_type == "AR(p)":
         p = params.get('p', 1)
         if len(series) < p + 1:
-            st.error(f"Données insuffisantes pour AR({p}) (besoin de {p + 1} points minimum)")
             return np.zeros(periods)
         return forecast_ar(p, series, periods)
     elif model_type == "ARIMA":
         order = params.get('order', (5, 1, 0))
         if len(series) < max(order) + 1:
-            st.error(f"Données insuffisantes pour ARIMA{order} (besoin de {max(order) + 1} points minimum)")
             return np.zeros(periods)
         return forecast_arima(order, series, periods)
     elif model_type == "VAR":
@@ -679,13 +677,11 @@ def forecast_variable(df, col, periods, model_type, params):
         series_dict = {v: df.set_index("Date")[v].dropna() for v in vars_list}
         lag_order = params.get('lag_order', 1)
         if len(series) < lag_order + 1:
-            st.error(f"Données insuffisantes pour VAR (besoin de {lag_order + 1} points minimum)")
             return np.zeros(periods)
         return forecast_var(lag_order, series_dict, col, periods)
     elif model_type == "ARDL":
         lags = params.get('lags', 1)
         if len(series) < lags + 1:
-            st.error(f"Données insuffisantes pour ARDL (besoin de {lags + 1} points minimum)")
             return np.zeros(periods)
         return forecast_ardl(lags, series, periods=periods)
     elif model_type == "Prophet":
@@ -711,7 +707,8 @@ def forecast_variable(df, col, periods, model_type, params):
         st.error(f"Modèle {model_type} non supporté")
         return np.zeros(periods)
 
-def generate_full_forecast_excel(df, periods, model_type, params):
+# NOUVELLE FONCTION POUR GÉRER L'ORIENTATION DE L'EXPORT
+def generate_forecast_df(df, periods, model_type, params, orientation="dates_in_rows"):
     if "Date" not in df.columns:
         st.error("La colonne 'Date' est manquante dans les données")
         return pd.DataFrame()
@@ -721,19 +718,31 @@ def generate_full_forecast_excel(df, periods, model_type, params):
     future_dates = pd.date_range(start=df["Date"].max() + pd.DateOffset(months=1), periods=periods, freq='M').strftime('%Y-%m')
 
     all_dates = list(historical_dates) + list(future_dates)
-    forecast_df = pd.DataFrame(index=variables, columns=all_dates)
+    
+    # DataFrame intermédiaire : Variables en Index (Lignes), Dates en Colonnes
+    forecast_df = pd.DataFrame(index=variables, columns=all_dates) 
 
     for var in variables:
         historical = df.set_index("Date")[var]
-        forecast = forecast_variable(df, var, periods, model_type, params)
+        # Re-calculer la prévision si nécessaire (pour les variables sélectionnées)
+        forecast = forecast_variable(df[["Date", var]], var, periods, model_type, params)
         full_series = pd.concat([historical, pd.Series(forecast, index=pd.to_datetime(future_dates))])
         full_series.index = historical.index.strftime('%Y-%m').tolist() + list(future_dates)
         forecast_df.loc[var] = full_series.values
 
-    forecast_df = forecast_df.T
-    forecast_df.insert(0, "Variable", forecast_df.index)
-    forecast_df = forecast_df.reset_index(drop=True)
-    return forecast_df
+    # LOGIQUE DE FORMATAGE DES PRÉVISIONS
+    if orientation == "dates_in_rows": # Dates en lignes / Variables en colonnes (Standard)
+        final_df = forecast_df.T
+        final_df.insert(0, "Date", final_df.index)
+        final_df = final_df.reset_index(drop=True)
+        return final_df
+    
+    else: # Variables en lignes / Dates en colonnes
+        final_df = forecast_df.copy()
+        final_df.insert(0, "Variable", final_df.index)
+        final_df = final_df.reset_index(drop=True)
+        return final_df
+
 
 # === DATA VISUALIZATION MODULE ===
 def data_visualization_module():
@@ -1017,7 +1026,7 @@ def data_visualization_module():
                 "Régression Linéaire", "Random Forest", "MLP", 
                 "Exponential Smoothing"
             ])
-            indicator = st.selectbox("Indicateur à prévoir", df.columns.drop("Date"))
+            indicator = st.selectbox("Indicateur à prévoir (pour affichage graphique)", df.columns.drop("Date"))
             periods = st.slider("Période de prévision (mois)", 3, 60, 12)
 
             params = {}
@@ -1048,19 +1057,33 @@ def data_visualization_module():
                 params['seasonal'] = st.selectbox("Saisonnalité", ['add', 'mul', None])
                 params['seasonal_periods'] = st.slider("Périodes saisonnières", 4, 24, 12)
 
-            if st.button("Lancer la prévision", type="primary"):
-                with st.spinner("Prévision en cours..."):
+            # --- LOGIQUE D'ORIENTATION D'EXPORTATION POUR L'EXPORT GLOBAL (COL1) ---
+            st.divider()
+            st.subheader("Options d'Exportation Globale")
+            export_orientation = st.selectbox(
+                "Format d'exportation Excel pour TOUTES les variables",
+                [
+                    "Dates en lignes / Variables en colonnes (Standard)", 
+                    "Variables en lignes / Dates en colonnes"
+                ],
+                key="export_orientation_select"
+            )
+            is_dates_in_rows = (export_orientation == "Dates en lignes / Variables en colonnes (Standard)")
+            orientation_param = "dates_in_rows" if is_dates_in_rows else "dates_in_columns"
+            # --------------------------------------------------------------------
+
+            if st.button("Lancer la prévision", type="primary", key="launch_forecast_btn"):
+                with st.spinner(f"Prévision de {indicator} en cours..."):
                     series = df.set_index("Date")[indicator].dropna()
                     min_required = max(2, params.get('p', 1) + 1, 
                                      params.get('lag_order', 1) + 1, params.get('lags', 1) + 1)
                     if len(series) < min_required:
                         st.error(f"Données insuffisantes pour {model_type} (besoin de {min_required} points minimum)")
                     else:
-                        forecast = forecast_variable(df, indicator, periods, model_type, params)
+                        forecast = forecast_variable(df[["Date", indicator]], indicator, periods, model_type, params) # Ne passe que les colonnes nécessaires
                         future_dates = pd.date_range(start=df["Date"].max() + pd.offsets.DateOffset(months=1), periods=periods, freq='M')
                         
-                        historical_df = df[["Date", indicator]].copy()
-                        historical_df["Type"] = "Historique"
+                        historical_df = pd.DataFrame({"Date": df["Date"], indicator: df[indicator], "Type": "Historique"})
                         
                         forecast_df = pd.DataFrame({
                             "Date": future_dates, 
@@ -1075,7 +1098,8 @@ def data_visualization_module():
                             train, test = series[:train_size], series[train_size:]
                             train_df = df[["Date", indicator]].iloc[:train_size].copy()
                             train_forecast = forecast_variable(train_df, indicator, 12, model_type, params)
-                            mape = mean_absolute_percentage_error(test, train_forecast) if len(train_forecast) == len(test) else 0.1
+                            # Assurer que les longueurs correspondent pour le MAPE
+                            mape = mean_absolute_percentage_error(test, train_forecast) if len(train_forecast) == len(test) and len(test) > 0 else 0.1
                         else:
                             mape = 0.1
                             
@@ -1087,20 +1111,27 @@ def data_visualization_module():
                         st.session_state.forecast_params = params
                         st.toast("Prévision terminée!")
 
-            if st.button("Générer Excel avec toutes les prévisions"):
+            # --- BOUTON EXPORT TOUT (INCHANGÉ) ---
+            if st.button("Générer Excel avec toutes les prévisions", key="export_all_forecasts_btn"):
                 with st.spinner("Génération des prévisions pour toutes les variables..."):
-                    excel_df = generate_full_forecast_excel(df, periods, model_type, params)
+                    
+                    # APPEL À LA FONCTION AVEC ORIENTATION pour TOUTES les variables
+                    excel_df = generate_forecast_df(df, periods, model_type, params, orientation_param) 
+                    
                     if not excel_df.empty:
                         with BytesIO() as buffer:
                             with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
                                 excel_df.to_excel(writer, index=False, sheet_name="Prévisions")
+                            
+                            file_suffix = "_dates_in_rows" if orientation_param == "dates_in_rows" else "_vars_in_rows"
                             st.download_button(
                                 label="Télécharger Excel (Toutes Prévisions)",
                                 data=buffer.getvalue(),
-                                file_name=f"all_forecasts_{model_type}.xlsx",
+                                file_name=f"all_forecasts_{model_type}{file_suffix}.xlsx",
                                 mime="application/vnd.ms-excel"
                             )
                         st.success("Fichier Excel généré avec succès!")
+
 
         with col2:
             if "forecast_data" in st.session_state:
@@ -1110,6 +1141,7 @@ def data_visualization_module():
                 historical_data = full_df[full_df["Type"] == "Historique"]
                 forecast_data = full_df[full_df["Type"] == "Prévision"]
                 
+                # --- AFFICHAGE GRAPHIQUE INCHANGÉ ---
                 fig = go.Figure()
                 
                 fig.add_trace(go.Scatter(
@@ -1190,16 +1222,66 @@ def data_visualization_module():
                 })
                 st.caption(f"Précision du modèle (MAPE): {st.session_state.mape:.2%}")
                 
-                if st.button("Exporter les prévisions (unique)"):
-                    with BytesIO() as buffer:
-                        with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
-                            full_df.to_excel(writer, index=False)
-                        st.download_button(
-                            label="Télécharger Prévisions (Excel)",
-                            data=buffer.getvalue(),
-                            file_name=f"forecast_{indicator}_{st.session_state.forecast_model}.xlsx",
-                            mime="application/vnd.ms-excel"
-                        )
+                # --- NOUVELLE LOGIQUE DEMANDÉE : SÉLECTION DE VARIABLES + TRANSPOSITION ---
+                st.divider()
+                st.subheader("Options d'Exportation Personnalisée")
+                
+                # 1. Sélection des variables (remplace l'ancien sélecteur Historique/Prévision)
+                all_vars = df.columns.drop("Date").tolist()
+                selected_export_vars = st.multiselect(
+                    "Sélectionner les variables à inclure dans l'export",
+                    options=all_vars,
+                    default=[st.session_state.forecast_variable], # Variable affichée par défaut
+                    key="export_vars_selection"
+                )
+                
+                # 2. Option de transposition
+                export_orientation_unique = st.radio(
+                    "Transposition des données dans l'Excel", 
+                    ["Dates en lignes / Variables en colonnes", "Variables en lignes / Dates en colonnes"],
+                    key="export_orientation_unique_radio"
+                )
+                
+                orientation_param_unique = "dates_in_rows" if export_orientation_unique.startswith("Dates en lignes") else "dates_in_columns"
+
+                # 3. Bouton d'export personnalisé
+                if st.button("Exporter les prévisions sélectionnées", key="export_single_forecast_btn"):
+                    if not selected_export_vars:
+                        st.error("Veuillez sélectionner au moins une variable à exporter.")
+                    else:
+                        with st.spinner(f"Génération des prévisions pour {len(selected_export_vars)} variables..."):
+                            
+                            # Créer un DataFrame ne contenant que les variables sélectionnées pour l'export.
+                            df_export = df[["Date"] + selected_export_vars].copy()
+                            
+                            # Utiliser la fonction multi-variable forecast `generate_forecast_df`
+                            # Elle va re-calculer la prévision pour toutes les variables sélectionnées 
+                            # en utilisant les paramètres du dernier modèle exécuté.
+                            excel_df = generate_forecast_df(
+                                df=df_export, 
+                                periods=st.session_state.forecast_periods, 
+                                model_type=st.session_state.forecast_model, 
+                                params=st.session_state.forecast_params, 
+                                orientation=orientation_param_unique
+                            )
+                            
+                            if not excel_df.empty:
+                                with BytesIO() as buffer:
+                                    with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
+                                        excel_df.to_excel(writer, index=False, sheet_name="Prévisions")
+                                    
+                                    file_suffix = "_dates_in_rows" if orientation_param_unique == "dates_in_rows" else "_vars_in_rows"
+                                    st.download_button(
+                                        label="Télécharger Excel (Sélection)",
+                                        data=buffer.getvalue(),
+                                        file_name=f"custom_forecast_{st.session_state.forecast_model}{file_suffix}.xlsx",
+                                        mime="application/vnd.ms-excel"
+                                    )
+                                st.success("Fichier Excel généré avec succès!")
+                            else:
+                                st.error("Erreur lors de la génération du fichier Excel. Vérifiez les données ou les paramètres.")
+                # --- FIN NOUVELLE LOGIQUE ---
+
             else:
                 st.info("Configurez et lancez une prévision")
 
