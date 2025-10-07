@@ -1267,24 +1267,35 @@ def data_visualization_module():
                     }
                 })
                 
-                # --- NOUVEL AFFICHAGE DU MAPE AVEC CODE COULEUR ---
+                # --- AFFICHAGE DU MAPE AVEC CODE COULEUR ---
                 mape_value = st.session_state.mape
                 mape_html = get_mape_status_html(mape_value)
                 st.markdown(mape_html, unsafe_allow_html=True)
-                # --- FIN NOUVEL AFFICHAGE ---
+                # --- FIN AFFICHAGE MAPE ---
                 
-                # --- NOUVELLE LOGIQUE DEMANDÉE : SÉLECTION DE VARIABLES + TRANSPOSITION ---
+                # --- LOGIQUE D'EXPORTATION PERSONNALISÉE (SECTION CORRIGÉE) ---
                 st.divider()
                 st.subheader("Options d'Exportation Personnalisée")
                 
                 # 1. Sélection des variables 
                 all_vars = df.columns.drop("Date").tolist()
+                
+                # **DEBUT DE LA CORRECTION : Détermination de la valeur par défaut sécurisée**
+                safe_default_vars = []
+                if 'forecast_variable' in st.session_state and st.session_state.forecast_variable in all_vars:
+                    # Utiliser la variable de la dernière prévision si elle est valide
+                    safe_default_vars = [st.session_state.forecast_variable]
+                elif len(all_vars) > 0:
+                    # Fallback sur la première variable si aucune prévision n'a été lancée ou si la clé est invalide
+                    safe_default_vars = [all_vars[0]]
+
                 selected_export_vars = st.multiselect(
                     "Sélectionner les variables à inclure dans l'export",
                     options=all_vars,
-                    default=[st.session_state.forecast_variable], # Variable affichée par défaut
+                    default=safe_default_vars, # Utilisation de la valeur sécurisée
                     key="export_vars_selection"
                 )
+                # **FIN DE LA CORRECTION**
                 
                 # 2. Option de transposition
                 export_orientation_unique = st.radio(
@@ -1331,7 +1342,7 @@ def data_visualization_module():
                                 st.success("Fichier Excel généré avec succès!")
                             else:
                                 st.error("Erreur lors de la génération du fichier Excel. Vérifiez les données ou les paramètres.")
-                # --- FIN NOUVELLE LOGIQUE ---
+                # --- FIN LOGIQUE D'EXPORTATION PERSONNALISÉE ---
 
             else:
                 st.info("Configurez et lancez une prévision")
@@ -1517,7 +1528,7 @@ st.logo(
 
 # === NAVIGATION ===
 with st.sidebar:
-    st.title("🎯 Prévisions")
+    st.title("🎯 Prévision")
     st.divider()
     
     if "navigation_module" not in st.session_state:
@@ -1570,4 +1581,3 @@ st.markdown("""
   </div>
 </div>
 """, unsafe_allow_html=True)
-
