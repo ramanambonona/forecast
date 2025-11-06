@@ -10,7 +10,7 @@ from prophet import Prophet
 from sklearn.linear_model import LinearRegression
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.neural_network import MLPRegressor
-from sklearn.metrics import mean_absolute_percentage_error
+from sklearn.metrics import mean_absolute_percentage_error, mean_squared_error, mean_absolute_error
 from io import BytesIO
 import re
 import datetime
@@ -18,19 +18,18 @@ from statsmodels.tsa.seasonal import seasonal_decompose
 import warnings
 warnings.filterwarnings('ignore')
 
-# === CONFIGURATION DE LA PAGE (DOIT ÊTRE EN PREMIER) ===
+# === CONFIGURATION DE LA PAGE ===
 st.set_page_config(
-    page_title="Prévisions",
+    page_title="Prévisions Avancées",
     page_icon="⚙️",
     layout="wide",
     initial_sidebar_state="expanded",
     menu_items=None
 )
 
-# === CSS AMÉLIORÉ POUR MASQUER LES ÉLÉMENTS PROBLÉMATIQUES ===
+# === NOUVEAU CSS AVEC THÈME CHOCOLAT/COCOA ===
 st.markdown("""
 <style>
-/* PRIORITÉ ABSOLUE : Masquer tous les éléments de contrôle de sidebar */
 [data-testid="collapsedControl"] {
     display: none !important;
     visibility: hidden !important;
@@ -44,89 +43,54 @@ button[kind="header"] {
     display: none !important;
 }
 
-
-/* Personnalisation de la barre d'outils Plotly */
-.modebar {
-    background-color: rgba(255, 255, 255, 0.9) !important;
-    border-radius: 8px;
-    padding: 4px;
-    backdrop-filter: blur(10px);
+/* Variables de couleur chocolat */
+:root { 
+    --ui-font: "EB Garamond","Garamond","Times New Roman",serif; 
+    --primary-color: #5B3C2B;
+    --secondary-color: #8B5A3C;
+    --accent-color: #A67B5B;
+    --light-bg: #F5F1EE;
+    --dark-text: #2C1E16;
+    --success-color: #27AE60;
+    --warning-color: #F39C12;
+    --error-color: #E74C3C;
+    --sidebar-bg: rgba(245, 241, 238, 0.95);
 }
 
-.modebar-btn {
-    transition: all 0.2s ease;
+/* Thème général */
+.stApp {
+    background-color: #F5F1EE;
 }
 
-.modebar-btn:hover {
-    background-color: rgba(44, 44, 44, 0.1) !important;
-}
-
-/* Police Garamond */
-/* 0) Variable de police UI (NE PAS mettre !important dans la valeur d'une var CSS) */
-:root { --ui-font: "EB Garamond","Garamond","Times New Roman",serif; }
-
-/* 1) Garamond (titres, labels, inputs, tables, boutons, etc.) */
 body, .stApp, .block-container,
 .stMarkdown, p, h1, h2, h3, h4, h5, h6,
 label, .stTextInput input, .stNumberInput input,
 .stSelectbox, .stDataFrame, .stButton > button,
 .stRadio, .stCheckbox, .stDateInput, .stMultiSelect {
   font-family: var(--ui-font) !important;
+  color: var(--dark-text);
 }
 
-/* 2) Exception */
-[data-testid="collapsedControl"] span,
-[data-testid="collapsedControl"] i,
-[data-testid="collapsedControl"] .material-icons,
-[data-testid="collapsedControl"] .material-symbols-outlined {
-  font-family: 'Material Symbols Outlined','Material Icons' !important;
-  /* paramètres de rendu des Material Symbols */
-  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
-  font-style: normal; font-weight: 400; line-height: 1;
-  letter-spacing: normal; text-transform: none; white-space: nowrap;
-  -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
-}
-
-/* (optionnel)*/
-[data-testid="collapsedControl"] { display: flex !important; }
-
-/* Thème général */
-.stApp {
-    background-color: #FFFFFF;
-}
-
-/* Sidebar responsive */
+/* Sidebar */
 [data-testid="stSidebar"] {
-    background-color: rgba(248, 248, 248, 0.95) !important;
-    border-right: 1px solid rgba(229, 229, 229, 0.5);
+    background-color: var(--sidebar-bg) !important;
+    border-right: 1px solid rgba(139, 90, 60, 0.3);
     backdrop-filter: blur(10px);
     min-width: 250px !important;
 }
 
-@media (max-width: 768px) {
-    [data-testid="stSidebar"] {
-        min-width: 200px !important;
-    }
-}
-
 /* Titres */
 h1, h2, h3 {
-    color: #2C2C2C;
+    color: var(--primary-color);
     font-weight: 600;
     letter-spacing: -0.3px;
 }
 
-@media (max-width: 768px) {
-    h1 { font-size: 1.8rem !important; }
-    h2 { font-size: 1.5rem !important; }
-    h3 { font-size: 1.3rem !important; }
-}
-
-/* Boutons iOS style */
+/* Boutons */
 .stButton>button {
     background-color: transparent !important;
-    color: #2C2C2C !important;
-    border: 1.5px solid rgba(44, 44, 44, 0.3) !important;
+    color: var(--primary-color) !important;
+    border: 1.5px solid rgba(91, 60, 43, 0.4) !important;
     border-radius: 12px;
     padding: 12px 24px;
     font-weight: 500;
@@ -136,261 +100,108 @@ h1, h2, h3 {
     width: 100%;
 }
 
-@media (max-width: 768px) {
-    .stButton>button {
-        padding: 10px 16px;
-        font-size: 14px;
-    }
-}
-
 .stButton>button:hover {
-    background-color: rgba(44, 44, 44, 0.1) !important;
-    border-color: rgba(44, 44, 44, 0.7) !important;
+    background-color: rgba(91, 60, 43, 0.1) !important;
+    border-color: rgba(91, 60, 43, 0.7) !important;
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 12px rgba(91, 60, 43, 0.15);
 }
 
 .stButton>button[kind="primary"] {
-    background-color: rgba(44, 44, 44, 0.9) !important;
+    background-color: rgba(91, 60, 43, 0.9) !important;
     color: #FFFFFF !important;
-    border: 1.5px solid #2C2C2C !important;
+    border: 1.5px solid var(--primary-color) !important;
 }
 
 .stButton>button[kind="primary"]:hover {
-    background-color: rgba(44, 44, 44, 0.7) !important;
+    background-color: rgba(91, 60, 43, 0.7) !important;
 }
 
-/* Inputs responsive */
+/* Inputs */
 .stTextInput>div>div>input,
 .stSelectbox>div>div>select,
 .stNumberInput>div>div>input {
-    border: 1px solid rgba(229, 229, 229, 0.7);
+    border: 1px solid rgba(139, 90, 60, 0.3);
     border-radius: 10px;
     padding: 10px;
-    background-color: rgba(248, 248, 248, 0.8);
+    background-color: rgba(255, 255, 255, 0.8);
     transition: all 0.3s ease;
     font-size: 15px;
-}
-
-@media (max-width: 768px) {
-    .stTextInput>div>div>input,
-    .stSelectbox>div>div>select,
-    .stNumberInput>div>div>input {
-        font-size: 14px;
-        padding: 8px;
-    }
+    color: var(--dark-text);
 }
 
 /* Tabs */
 .stTabs [data-baseweb="tab-list"] {
     gap: 8px;
-    background-color: rgba(248, 248, 248, 0.8);
+    background-color: rgba(245, 241, 238, 0.8);
     border-radius: 12px;
     padding: 4px;
     backdrop-filter: blur(5px);
-    flex-wrap: wrap;
-}
-
-@media (max-width: 768px) {
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 4px;
-    }
-    
-    .stTabs [data-baseweb="tab"] {
-        font-size: 13px;
-        padding: 8px 12px;
-    }
 }
 
 .stTabs [data-baseweb="tab"] {
     border-radius: 8px;
-    color: #8E8E93;
+    color: #8B7355;
     font-weight: 500;
     transition: all 0.3s ease;
 }
 
 .stTabs [aria-selected="true"] {
     background-color: rgba(255, 255, 255, 0.9) !important;
-    color: #2C2C2C !important;
+    color: var(--primary-color) !important;
 }
 
-/* Metrics responsive */
+/* Métriques */
 [data-testid="stMetricValue"] {
-    color: #2C2C2C;
+    color: var(--primary-color);
     font-size: 28px;
     font-weight: 600;
 }
 
-@media (max-width: 768px) {
-    [data-testid="stMetricValue"] {
-        font-size: 22px;
-    }
-    
-    [data-testid="stMetricDelta"] {
-        font-size: 12px;
-    }
-}
-
-/* File uploader */
-[data-testid="stFileUploader"] {
-    border: 2px dashed rgba(229, 229, 229, 0.7);
-    border-radius: 12px;
-    padding: 20px;
-    background-color: rgba(250, 250, 250, 0.8);
-    backdrop-filter: blur(5px);
-}
-
-@media (max-width: 768px) {
-    [data-testid="stFileUploader"] {
-        padding: 15px;
-    }
-}
-
-/* DataFrames responsive */
-.stDataFrame {
-    border-radius: 12px;
-    overflow-x: auto;
-    border: 1px solid rgba(229, 229, 229, 0.5);
-}
-
-@media (max-width: 768px) {
-    .stDataFrame {
-        font-size: 12px;
-    }
-}
-
-/* Metric containers */
 [data-testid="metric-container"] {
-    border: 1px solid rgba(229, 229, 229, 0.5);
+    border: 1px solid rgba(139, 90, 60, 0.2);
     border-radius: 12px;
     padding: 1rem;
     background-color: rgba(255, 255, 255, 0.7);
     backdrop-filter: blur(5px);
 }
 
-@media (max-width: 768px) {
-    [data-testid="metric-container"] {
-        padding: 0.75rem;
-    }
-}
-
-/* Colonnes responsive */
-.row-widget.stHorizontal {
-    flex-wrap: wrap;
-}
-
-@media (max-width: 768px) {
-    .row-widget.stHorizontal > div {
-        min-width: 100% !important;
-        margin-bottom: 10px;
-    }
-}
-
-/* Plotly charts responsive - Afficher la barre d'outils */
-.js-plotly-plot {
-    width: 100% !important;
-}
-
-.js-plotly-plot .plotly .modebar {
-    display: flex !important;
-}
-
-@media (max-width: 768px) {
-    .js-plotly-plot .plotly {
-        font-size: 11px !important;
-    }
-    
-    .modebar {
-        right: 10px !important;
-        top: 10px !important;
-    }
-    
-    .modebar-btn {
-        width: 32px !important;
-        height: 32px !important;
-    }
-}
-
-/* Slider responsive */
-.stSlider {
-    padding: 0 10px;
-}
-
-@media (max-width: 768px) {
-    .stSlider {
-        padding: 0 5px;
-    }
-}
-
-/* Espacement du contenu principal */
-.main .block-container {
-    padding-top: 2rem;
-    padding-left: 1rem;
-    padding-right: 1rem;
-    max-width: 100%;
-}
-
-@media (max-width: 768px) {
-    .main .block-container {
-        padding-top: 1rem;
-        padding-left: 0.5rem;
-        padding-right: 0.5rem;
-    }
-}
-
-/* Navigation sidebar */
-[data-testid="stSidebar"] .stButton>button {
-    margin: 5px 0;
-}
-
-/* Alerts responsive */
-.stAlert {
+/* File uploader */
+[data-testid="stFileUploader"] {
+    border: 2px dashed rgba(139, 90, 60, 0.3);
     border-radius: 12px;
-    border: none;
+    padding: 20px;
+    background-color: rgba(250, 250, 250, 0.8);
     backdrop-filter: blur(5px);
 }
 
-@media (max-width: 768px) {
-    .stAlert {
-        font-size: 13px;
-        padding: 10px;
-    }
+/* DataFrames */
+.stDataFrame {
+    border-radius: 12px;
+    overflow-x: auto;
+    border: 1px solid rgba(139, 90, 60, 0.2);
 }
 
-/* Expander responsive */
-.streamlit-expanderHeader {
-    font-size: 16px;
-}
-
-@media (max-width: 768px) {
-    .streamlit-expanderHeader {
-        font-size: 14px;
-    }
-}
-/* Footer perso (bas-centre) */
+/* Footer */
 .custom-footer {
   position: fixed;
   left: 50%;
   bottom: 10px;
   transform: translateX(-50%);
   z-index: 1001;
-
-  background: rgba(255,255,255,0.65);
-  border: 1px solid rgba(229,229,229,.6);
+  background: rgba(245, 241, 238, 0.8);
+  border: 1px solid rgba(139, 90, 60, 0.3);
   border-radius: 12px;
   padding: 8px 12px;
-
   display: flex;
   align-items: center;
   gap: 12px;
-
-  -webkit-backdrop-filter: blur(6px);
   backdrop-filter: blur(6px);
 }
 
 .custom-footer .footnote {
   margin: 0;
-  color:#2C2C2C;
+  color: var(--primary-color);
   font-size: 13px;
   text-align: center;
 }
@@ -411,21 +222,34 @@ h1, h2, h3 {
 
 .custom-footer .social img:hover { opacity:1; }
 
-/* Responsive : garde le footer centré et lisible sur mobile */
-@media (max-width: 640px) {
-  .custom-footer{
-    width: calc(100% - 24px);
-    padding: 8px 10px;
-    bottom: 8px;
-    gap: 10px;
-    flex-wrap: wrap;
-    justify-content: center;
-  }
+/* Responsive */
+@media (max-width: 768px) {
+    h1 { font-size: 1.8rem !important; }
+    h2 { font-size: 1.5rem !important; }
+    h3 { font-size: 1.3rem !important; }
+    
+    .stButton>button {
+        padding: 10px 16px;
+        font-size: 14px;
+    }
+    
+    [data-testid="stMetricValue"] {
+        font-size: 22px;
+    }
+    
+    .custom-footer {
+        width: calc(100% - 24px);
+        padding: 8px 10px;
+        bottom: 8px;
+        gap: 10px;
+        flex-wrap: wrap;
+        justify-content: center;
+    }
 }
 </style>
 """, unsafe_allow_html=True)
 
-# === FORMATAGE DES NOMBRES ===
+# === FONCTIONS DE BASE ===
 def format_number(value):
     """Formate les nombres en milliers, millions, milliards avec le format français"""
     if pd.isna(value) or value is None:
@@ -442,20 +266,18 @@ def format_number(value):
     else:
         return f"{value:,.1f} MGA".replace(',', ' ').replace('.', ',')
 
-# === MAPPE STATUS HELPER (NOUVELLE FONCTION) ===
 def get_mape_status_html(mape_value):
     """Détermine la couleur et l'étiquette de qualité du modèle basée sur le MAPE."""
-    if mape_value < 0.10: # < 10%
-        color = "#28a745" # Green
+    if mape_value < 0.10:
+        color = "#28a745"
         label = "🟢 Excellent"
-    elif mape_value <= 0.20: # 10% à 20%
-        color = "#ffc107" # Orange
+    elif mape_value <= 0.20:
+        color = "#ffc107"
         label = "🟠 Bon"
-    else: # > 20%
-        color = "#dc3545" # Red
+    else:
+        color = "#dc3545"
         label = "🔴 Mauvais"
     
-    # Utilisation d'un conteneur Markdown/HTML pour un affichage stylisé
     html = f"""
     <div style="
         display: flex; 
@@ -480,58 +302,64 @@ def get_mape_status_html(mape_value):
     """
     return html
 
-
-# === ANALYSE DES SÉRIES TEMPORELLES ===
-def analyze_time_series(series):
-    """Analyse une série temporelle pour déterminer ses caractéristiques"""
-    analysis = {
-        'tendance': 'Non détectée',
-        'saisonnalite': 'Non détectée',
-        'stationnarite': 'Non déterminée',
-        'recommandations': []
-    }
+def get_overall_quality(mape, rmse, mae):
+    """Détermine la qualité globale basée sur les trois métriques"""
+    if pd.isna(mape) or pd.isna(rmse) or pd.isna(mae):
+        return "⚪ Non calculé", "#6c757d"
     
-    try:
-        if len(series) > 12:
-            mean_first = series[:6].mean()
-            mean_last = series[-6:].mean()
-            variation = abs(mean_last - mean_first) / (abs(mean_first) + 1e-10)
-            
-            if variation > 0.1:
-                analysis['tendance'] = 'Détectée'
-                analysis['recommandations'].append('Présence de tendance - Modèles avec différenciation recommandés')
-            else:
-                analysis['tendance'] = 'Faible'
-        
-        if len(series) >= 24:
-            try:
-                decomposition = seasonal_decompose(series, period=12, model='additive', extrapolate_trend='freq')
-                seasonal_strength = np.std(decomposition.seasonal) / (np.std(decomposition.resid) + 1e-10)
-                
-                if seasonal_strength > 0.5:
-                    analysis['saisonnalite'] = 'Forte'
-                    analysis['recommandations'].append('Saisonnalité détectée - Modèles saisonniers recommandés')
-                elif seasonal_strength > 0.2:
-                    analysis['saisonnalite'] = 'Modérée'
-                    analysis['recommandations'].append('Saisonnalité modérée - Modèles avec composante saisonnière recommandés')
-            except:
-                pass
-        
-        if analysis['tendance'] == 'Détectée' and analysis['saisonnalite'] in ['Forte', 'Modérée']:
-            analysis['recommandations'].append('ARIMA saisonnier, Prophet, Exponential Smoothing recommandés')
-        elif analysis['tendance'] == 'Détectée':
-            analysis['recommandations'].append('ARIMA, Regression Linéaire, Random Forest recommandés')
-        elif analysis['saisonnalite'] in ['Forte', 'Modérée']:
-            analysis['recommandations'].append('SARIMA, Prophet, Seasonal Naive recommandés')
-        else:
-            analysis['recommandations'].append('AR, VAR, Random Forest recommandés')
-            
-    except Exception as e:
-        analysis['erreur'] = f"Erreur d'analyse: {str(e)}"
+    scores = []
+    if mape < 0.10: scores.append(3)
+    elif mape <= 0.20: scores.append(2)
+    else: scores.append(1)
     
-    return analysis
+    # Pour RMSE et MAE, on utilise des seuils relatifs
+    rmse_norm = rmse / (rmse + 1e-10)
+    mae_norm = mae / (mae + 1e-10)
+    
+    if rmse_norm < 0.5: scores.append(3)
+    elif rmse_norm <= 1.0: scores.append(2)
+    else: scores.append(1)
+        
+    if mae_norm < 0.5: scores.append(3)
+    elif mae_norm <= 1.0: scores.append(2)
+    else: scores.append(1)
+    
+    avg_score = np.mean(scores)
+    if avg_score >= 2.5:
+        return "🟢 Excellent", "#28a745"
+    elif avg_score >= 1.5:
+        return "🟠 Bon", "#ffc107"
+    else:
+        return "🔴 Mauvais", "#dc3545"
 
-# === FORECASTING FUNCTIONS ===
+def calculate_model_metrics(actual, predicted):
+    """Calcule les métriques de performance"""
+    if len(actual) == 0 or len(predicted) == 0:
+        return np.nan, np.nan, np.nan
+    
+    # S'assurer que les séries ont la même longueur
+    min_len = min(len(actual), len(predicted))
+    actual = actual[:min_len]
+    predicted = predicted[:min_len]
+    
+    mape = mean_absolute_percentage_error(actual, predicted)
+    rmse = np.sqrt(mean_squared_error(actual, predicted))
+    mae = mean_absolute_error(actual, predicted)
+    
+    return mape, rmse, mae
+
+def create_comparison_table(comparison_data):
+    """Crée le tableau de comparaison des modèles"""
+    df = pd.DataFrame(comparison_data)
+    
+    # Appliquer le formatage
+    df['MAPE'] = df['MAPE'].apply(lambda x: f"{x:.2%}" if not pd.isna(x) else "N/A")
+    df['RMSE'] = df['RMSE'].apply(lambda x: f"{x:,.2f}" if not pd.isna(x) else "N/A")
+    df['MAE'] = df['MAE'].apply(lambda x: f"{x:,.2f}" if not pd.isna(x) else "N/A")
+    
+    return df
+
+# === FONCTIONS DE PRÉVISION EXISTANTES ===
 def forecast_ssae(series, periods):
     forecasts = []
     current_series = series.copy()
@@ -687,16 +515,230 @@ def forecast_exponential_smoothing(series, periods, trend='add', seasonal='add',
         st.error(f"Erreur Exponential Smoothing: {str(e)}")
         return np.zeros(periods)
 
+# === NOUVELLES FONCTIONS DE PRÉVISION ===
+def forecast_sarima(order, seasonal_order, series, periods):
+    """SARIMA - ARIMA saisonnier"""
+    try:
+        from statsmodels.tsa.statespace.sarimax import SARIMAX
+        model = SARIMAX(series, order=order, seasonal_order=seasonal_order)
+        model_fit = model.fit(disp=False)
+        forecast = model_fit.forecast(steps=periods)
+        return forecast
+    except Exception as e:
+        st.error(f"Erreur SARIMA{order}{seasonal_order}: {str(e)}")
+        return np.zeros(periods)
+
+def forecast_garch(series, periods, p=1, q=1):
+    """GARCH - Modèle de volatilité"""
+    try:
+        from arch import arch_model
+        returns = series.pct_change().dropna() * 100
+        if len(returns) < max(p, q) + 10:
+            return np.zeros(periods)
+        model = arch_model(returns, vol='Garch', p=p, q=q)
+        model_fit = model.fit(disp='off')
+        forecast = model_fit.forecast(horizon=periods)
+        return forecast.variance.values[-1, :]
+    except Exception as e:
+        st.error(f"Erreur GARCH({p},{q}): {str(e)}")
+        return np.zeros(periods)
+
+def forecast_svar(lag_order, series_dict, target_var, periods):
+    """SVAR - VAR structurel"""
+    try:
+        data_var = pd.DataFrame(series_dict)
+        if len(data_var.columns) < 2:
+            st.warning("SVAR nécessite au moins 2 variables.")
+            return np.zeros(periods)
+        model = VAR(data_var)
+        model_fitted = model.fit(lag_order)
+        forecast = model_fitted.forecast(data_var.values[-lag_order:], steps=periods)
+        return forecast[:, data_var.columns.get_loc(target_var)]
+    except Exception as e:
+        st.error(f"Erreur SVAR: {str(e)}")
+        return np.zeros(periods)
+
+def forecast_midas(series, periods, high_freq_lags=3):
+    """MIDAS - Mixed Data Sampling (simplifié)"""
+    try:
+        from sklearn.linear_model import LinearRegression
+        lags = min(12, len(series) // 2)
+        if lags < 1:
+            return np.zeros(periods)
+            
+        X, y = [], []
+        for i in range(lags, len(series)):
+            high_freq_features = []
+            for j in range(high_freq_lags):
+                weight = (1 - j/high_freq_lags) ** 2
+                high_freq_features.append(series.iloc[i - j - 1] * weight)
+            X.append(high_freq_features)
+            y.append(series.iloc[i])
+            
+        X = np.array(X)
+        y = np.array(y)
+        
+        model = LinearRegression()
+        model.fit(X, y)
+        
+        forecasts = []
+        last_features = series.iloc[-high_freq_lags:].values
+        for _ in range(periods):
+            features = []
+            for j in range(high_freq_lags):
+                weight = (1 - j/high_freq_lags) ** 2
+                features.append(last_features[j] * weight)
+            pred = model.predict([features])[0]
+            forecasts.append(pred)
+            last_features = np.roll(last_features, -1)
+            last_features[-1] = pred
+            
+        return np.array(forecasts)
+    except Exception as e:
+        st.error(f"Erreur MIDAS: {str(e)}")
+        return np.zeros(periods)
+
+def forecast_lstm(series, periods, units=50, epochs=100):
+    """LSTM - Réseau de neurones récurrent"""
+    try:
+        from sklearn.preprocessing import MinMaxScaler
+        scaler = MinMaxScaler()
+        data_scaled = scaler.fit_transform(series.values.reshape(-1, 1))
+        
+        lookback = min(12, len(series) // 2)
+        X, y = [], []
+        for i in range(lookback, len(data_scaled)):
+            X.append(data_scaled[i-lookback:i, 0])
+            y.append(data_scaled[i, 0])
+        
+        X, y = np.array(X), np.array(y)
+        X = X.reshape(X.shape[0], X.shape[1], 1)
+        
+        # Construction simplifiée du modèle LSTM
+        from tensorflow.keras.models import Sequential
+        from tensorflow.keras.layers import LSTM, Dense
+        
+        model = Sequential()
+        model.add(LSTM(units, return_sequences=True, input_shape=(lookback, 1)))
+        model.add(LSTM(units))
+        model.add(Dense(1))
+        model.compile(optimizer='adam', loss='mean_squared_error')
+        
+        model.fit(X, y, epochs=epochs, batch_size=32, verbose=0)
+        
+        forecasts = []
+        current_batch = data_scaled[-lookback:].reshape(1, lookback, 1)
+        
+        for _ in range(periods):
+            current_pred = model.predict(current_batch, verbose=0)[0]
+            forecasts.append(current_pred[0])
+            current_batch = np.append(current_batch[:, 1:, :], [[current_pred]], axis=1)
+        
+        forecasts = np.array(forecasts).reshape(-1, 1)
+        return scaler.inverse_transform(forecasts).flatten()
+        
+    except Exception as e:
+        st.error(f"Erreur LSTM: {str(e)}")
+        return np.zeros(periods)
+
+def forecast_xgboost(series, periods, n_estimators=100, max_depth=6):
+    """XGBoost - Gradient Boosting"""
+    try:
+        import xgboost as xgb
+        lags = min(12, len(series) // 2)
+        if lags < 1:
+            return np.zeros(periods)
+            
+        X, y = [], []
+        for i in range(lags, len(series)):
+            X.append(series.iloc[i-lags:i].values)
+            y.append(series.iloc[i])
+            
+        X = np.array(X)
+        y = np.array(y)
+        
+        model = xgb.XGBRegressor(
+            n_estimators=n_estimators,
+            max_depth=max_depth,
+            random_state=42
+        )
+        model.fit(X, y)
+        
+        forecasts = []
+        last_lags = series.iloc[-lags:].values
+        for _ in range(periods):
+            pred = model.predict(last_lags.reshape(1, -1))[0]
+            forecasts.append(pred)
+            last_lags = np.roll(last_lags, -1)
+            last_lags[-1] = pred
+            
+        return np.array(forecasts)
+    except Exception as e:
+        st.error(f"Erreur XGBoost: {str(e)}")
+        return np.zeros(periods)
+
+def forecast_lightgbm(series, periods, n_estimators=100, max_depth=6):
+    """LightGBM - Gradient Boosting léger"""
+    try:
+        import lightgbm as lgb
+        lags = min(12, len(series) // 2)
+        if lags < 1:
+            return np.zeros(periods)
+            
+        X, y = [], []
+        for i in range(lags, len(series)):
+            X.append(series.iloc[i-lags:i].values)
+            y.append(series.iloc[i])
+            
+        X = np.array(X)
+        y = np.array(y)
+        
+        model = lgb.LGBMRegressor(
+            n_estimators=n_estimators,
+            max_depth=max_depth,
+            random_state=42
+        )
+        model.fit(X, y)
+        
+        forecasts = []
+        last_lags = series.iloc[-lags:].values
+        for _ in range(periods):
+            pred = model.predict(last_lags.reshape(1, -1))[0]
+            forecasts.append(pred)
+            last_lags = np.roll(last_lags, -1)
+            last_lags[-1] = pred
+            
+        return np.array(forecasts)
+    except Exception as e:
+        st.error(f"Erreur LightGBM: {str(e)}")
+        return np.zeros(periods)
+
+def forecast_bvar(lag_order, series_dict, target_var, periods):
+    """BVAR - VAR Bayésien (simplifié)"""
+    try:
+        data_var = pd.DataFrame(series_dict)
+        if len(data_var.columns) < 2:
+            st.warning("BVAR nécessite au moins 2 variables.")
+            return np.zeros(periods)
+        
+        model = VAR(data_var)
+        model_fitted = model.fit(lag_order)
+        forecast = model_fitted.forecast(data_var.values[-lag_order:], steps=periods)
+        return forecast[:, data_var.columns.get_loc(target_var)]
+    except Exception as e:
+        st.error(f"Erreur BVAR: {str(e)}")
+        return np.zeros(periods)
+
+# === FONCTION DE PRÉVISION UNIFIÉE ===
 def forecast_variable(df, col, periods, model_type, params):
     if "Date" not in df.columns:
-        # Cette vérification ne devrait pas se produire si `df` vient de `data_visualization_module`
         return np.zeros(periods) 
     
     series = df.set_index("Date")[col].dropna()
     if len(series) < 2:
         return np.zeros(periods)
     
-    # ... (Forecast logic as before) ...
+    # Modèles existants
     if model_type == "NAIVE":
         return forecast_ssae(series, periods)
     elif model_type == "AR(p)":
@@ -742,10 +784,50 @@ def forecast_variable(df, col, periods, model_type, params):
         seasonal = params.get('seasonal', 'add')
         sp = params.get('seasonal_periods', 12)
         return forecast_exponential_smoothing(series, periods, trend, seasonal, sp)
+    
+    # NOUVEAUX MODÈLES
+    elif model_type == "SARIMA":
+        order = params.get('order', (1, 1, 1))
+        seasonal_order = params.get('seasonal_order', (1, 1, 1, 12))
+        return forecast_sarima(order, seasonal_order, series, periods)
+    elif model_type == "GARCH":
+        p = params.get('p', 1)
+        q = params.get('q', 1)
+        return forecast_garch(series, periods, p, q)
+    elif model_type == "SVAR":
+        vars_list = [col]
+        other_vars = [v for v in df.columns.drop("Date") if v != col][:1]
+        vars_list.extend(other_vars)
+        series_dict = {v: df.set_index("Date")[v].dropna() for v in vars_list}
+        lag_order = params.get('lag_order', 1)
+        return forecast_svar(lag_order, series_dict, col, periods)
+    elif model_type == "MIDAS":
+        high_freq_lags = params.get('high_freq_lags', 3)
+        return forecast_midas(series, periods, high_freq_lags)
+    elif model_type == "LSTM":
+        units = params.get('units', 50)
+        epochs = params.get('epochs', 100)
+        return forecast_lstm(series, periods, units, epochs)
+    elif model_type == "XGBoost":
+        n_estimators = params.get('n_estimators', 100)
+        max_depth = params.get('max_depth', 6)
+        return forecast_xgboost(series, periods, n_estimators, max_depth)
+    elif model_type == "LightGBM":
+        n_estimators = params.get('n_estimators', 100)
+        max_depth = params.get('max_depth', 6)
+        return forecast_lightgbm(series, periods, n_estimators, max_depth)
+    elif model_type == "BVAR":
+        vars_list = [col]
+        other_vars = [v for v in df.columns.drop("Date") if v != col][:1]
+        vars_list.extend(other_vars)
+        series_dict = {v: df.set_index("Date")[v].dropna() for v in vars_list}
+        lag_order = params.get('lag_order', 1)
+        return forecast_bvar(lag_order, series_dict, col, periods)
     else:
         st.error(f"Modèle {model_type} non supporté")
         return np.zeros(periods)
 
+# === FONCTION POUR GÉNÉRER LES PRÉVISIONS MULTI-VARIABLES ===
 def generate_forecast_df(df, periods, model_type, params, orientation="dates_in_rows"):
     if "Date" not in df.columns:
         st.error("La colonne 'Date' est manquante dans les données")
@@ -757,34 +839,81 @@ def generate_forecast_df(df, periods, model_type, params, orientation="dates_in_
 
     all_dates = list(historical_dates) + list(future_dates)
     
-    # DataFrame intermédiaire : Variables en Index (Lignes), Dates en Colonnes
     forecast_df = pd.DataFrame(index=variables, columns=all_dates) 
 
     for var in variables:
         historical = df.set_index("Date")[var]
-        # Re-calculer la prévision si nécessaire (pour les variables sélectionnées)
         forecast = forecast_variable(df[["Date", var]], var, periods, model_type, params)
         full_series = pd.concat([historical, pd.Series(forecast, index=pd.to_datetime(future_dates))])
         full_series.index = historical.index.strftime('%Y-%m').tolist() + list(future_dates)
         forecast_df.loc[var] = full_series.values
 
-    # LOGIQUE DE FORMATAGE DES PRÉVISIONS
-    if orientation == "dates_in_rows": # Dates en lignes / Variables en colonnes (Standard)
+    if orientation == "dates_in_rows":
         final_df = forecast_df.T
         final_df.insert(0, "Date", final_df.index)
         final_df = final_df.reset_index(drop=True)
         return final_df
     
-    else: # Variables en lignes / Dates en colonnes
+    else:
         final_df = forecast_df.copy()
         final_df.insert(0, "Variable", final_df.index)
         final_df = final_df.reset_index(drop=True)
         return final_df
 
+# === ANALYSE DES SÉRIES TEMPORELLES ===
+def analyze_time_series(series):
+    """Analyse une série temporelle pour déterminer ses caractéristiques"""
+    analysis = {
+        'tendance': 'Non détectée',
+        'saisonnalite': 'Non détectée',
+        'stationnarite': 'Non déterminée',
+        'recommandations': []
+    }
+    
+    try:
+        if len(series) > 12:
+            mean_first = series[:6].mean()
+            mean_last = series[-6:].mean()
+            variation = abs(mean_last - mean_first) / (abs(mean_first) + 1e-10)
+            
+            if variation > 0.1:
+                analysis['tendance'] = 'Détectée'
+                analysis['recommandations'].append('Présence de tendance - Modèles avec différenciation recommandés')
+            else:
+                analysis['tendance'] = 'Faible'
+        
+        if len(series) >= 24:
+            try:
+                decomposition = seasonal_decompose(series, period=12, model='additive', extrapolate_trend='freq')
+                seasonal_strength = np.std(decomposition.seasonal) / (np.std(decomposition.resid) + 1e-10)
+                
+                if seasonal_strength > 0.5:
+                    analysis['saisonnalite'] = 'Forte'
+                    analysis['recommandations'].append('Saisonnalité détectée - Modèles saisonniers recommandés')
+                elif seasonal_strength > 0.2:
+                    analysis['saisonnalite'] = 'Modérée'
+                    analysis['recommandations'].append('Saisonnalité modérée - Modèles avec composante saisonnière recommandés')
+            except:
+                pass
+        
+        # Recommandations étendues avec les nouveaux modèles
+        if analysis['tendance'] == 'Détectée' and analysis['saisonnalite'] in ['Forte', 'Modérée']:
+            analysis['recommandations'].extend(['SARIMA', 'Prophet', 'Exponential Smoothing', 'LSTM recommandés'])
+        elif analysis['tendance'] == 'Détectée':
+            analysis['recommandations'].extend(['ARIMA', 'Regression Linéaire', 'XGBoost', 'LightGBM recommandés'])
+        elif analysis['saisonnalite'] in ['Forte', 'Modérée']:
+            analysis['recommandations'].extend(['SARIMA', 'Prophet', 'Seasonal Naive', 'LSTM recommandés'])
+        else:
+            analysis['recommandations'].extend(['AR', 'VAR', 'GARCH', 'Random Forest recommandés'])
+            
+    except Exception as e:
+        analysis['erreur'] = f"Erreur d'analyse: {str(e)}"
+    
+    return analysis
 
-# === DATA VISUALIZATION MODULE ===
+# === MODULE DE VISUALISATION AMÉLIORÉ ===
 def data_visualization_module():
-    st.header("Tableaux de Bord & Prévisions")
+    st.header("Tableaux de Bord & Prévisions Avancées")
 
     if "data_uploaded" not in st.session_state or not st.session_state.data_uploaded:
         st.warning("Veuillez d'abord importer des données dans le Module de Collecte des Données")
@@ -795,6 +924,10 @@ def data_visualization_module():
         st.error("La colonne 'Date' est manquante dans les données")
         return
     df["Date"] = pd.to_datetime(df["Date"])
+
+    # Initialisation de la session state pour la comparaison des modèles
+    if "model_comparisons" not in st.session_state:
+        st.session_state.model_comparisons = {}
 
     st.subheader("Indicateurs Clés")
     key_vars = df.columns.drop("Date")[:4]
@@ -821,7 +954,7 @@ def data_visualization_module():
                 f"{delta_pct:+.1f}% (base {base_year})"
             )
 
-    tab1, tab2, tab3, tab4 = st.tabs(["Évolution", "Visualisation", "Analyse", "Prévisions"])
+    tab1, tab2, tab3, tab4 = st.tabs(["Évolution", "Visualisation", "Analyse", "Prévisions Avancées"])
 
     with tab1:
         selected_vars = st.multiselect("Variables à visualiser", df.columns.drop("Date"))
@@ -838,20 +971,7 @@ def data_visualization_module():
                 font_family="Garamond",
                 hovermode='x unified'
             )
-            st.plotly_chart(fig, use_container_width=True, config={
-                'displayModeBar': True,
-                'displaylogo': False,
-                'modeBarButtonsToRemove': ['lasso2d', 'select2d'],
-                'toImageButtonOptions': {
-                    'format': 'png',
-                    'filename': f'evolution_{"-".join(selected_vars)}',
-                    'height': 800,
-                    'width': 1200,
-                    'scale': 2
-                }
-            })
-        else:
-            st.info("Sélectionnez au moins une variable à visualiser")
+            st.plotly_chart(fig, use_container_width=True)
 
     with tab2:
         st.subheader("Visualisation des Données")
@@ -939,18 +1059,7 @@ def data_visualization_module():
                 font_family="Garamond",
                 hovermode='x unified'
             )
-            st.plotly_chart(fig, use_container_width=True, config={
-                'displayModeBar': True,
-                'displaylogo': False,
-                'modeBarButtonsToRemove': ['lasso2d', 'select2d'],
-                'toImageButtonOptions': {
-                    'format': 'png',
-                    'filename': f'visualisation_{chart_type}',
-                    'height': 800,
-                    'width': 1200,
-                    'scale': 2
-                }
-            })
+            st.plotly_chart(fig, use_container_width=True)
             
             with st.expander("📊 Statistiques Descriptives"):
                 st.dataframe(
@@ -1029,24 +1138,13 @@ def data_visualization_module():
                         hovermode='x unified'
                     )
                     
-                    st.plotly_chart(fig_decomp, use_container_width=True, config={
-                        'displayModeBar': True,
-                        'displaylogo': False,
-                        'modeBarButtonsToRemove': ['lasso2d', 'select2d'],
-                        'toImageButtonOptions': {
-                            'format': 'png',
-                            'filename': f'decomposition_{analysis_var}',
-                            'height': 1000,
-                            'width': 1400,
-                            'scale': 2
-                        }
-                    })
+                    st.plotly_chart(fig_decomp, use_container_width=True)
                     
                 except Exception as e:
                     st.error(f"Erreur lors de la décomposition: {str(e)}")
 
     with tab4:
-        st.subheader("Modèle de Prévisions")
+        st.subheader("Modèles de Prévisions Avancées")
         col1, col2 = st.columns([1, 3])
 
         with col1:
@@ -1056,15 +1154,18 @@ def data_visualization_module():
                 if len(series) >= 12:
                     analysis = analyze_time_series(series)
                     st.info("💡 Recommandations basées sur l'analyse:")
-                    for rec in analysis['recommandations'][:2]:
+                    for rec in analysis['recommandations'][:3]:
                         st.write(f"• {rec}")
 
+            # LISTE ÉTENDUE DES MODÈLES
             model_type = st.selectbox("Modèle", [
-                "NAIVE", "AR(p)", "ARIMA", "VAR", "ARDL", "Prophet", 
-                "Régression Linéaire", "Random Forest", "MLP", 
-                "Exponential Smoothing"
+                "NAIVE", "AR(p)", "ARIMA", "SARIMA", "VAR", "SVAR", "BVAR", 
+                "ARDL", "Prophet", "Régression Linéaire", "Random Forest", 
+                "MLP", "Exponential Smoothing", "GARCH", "MIDAS", "LSTM", 
+                "XGBoost", "LightGBM"
             ])
-            indicator = st.selectbox("Indicateur à prévoir (pour affichage graphique)", df.columns.drop("Date"))
+            
+            indicator = st.selectbox("Indicateur à prévoir", df.columns.drop("Date"))
             periods = st.slider("Période de prévision (mois)", 3, 60, 12)
 
             params = {}
@@ -1075,9 +1176,18 @@ def data_visualization_module():
                 d = st.slider("d (Diff)", 0, 2, 1)
                 q = st.slider("q (MA)", 0, 5, 0)
                 params['order'] = (p, d, q)
-            elif model_type == "VAR":
+            elif model_type == "SARIMA":
+                p = st.slider("p (AR)", 0, 2, 1)
+                d = st.slider("d (Diff)", 0, 1, 1)
+                q = st.slider("q (MA)", 0, 2, 1)
+                P = st.slider("P (SAR)", 0, 2, 1)
+                D = st.slider("D (SDiff)", 0, 1, 1)
+                Q = st.slider("Q (SMA)", 0, 2, 1)
+                s = st.slider("s (Période)", 6, 24, 12)
+                params['order'] = (p, d, q)
+                params['seasonal_order'] = (P, D, Q, s)
+            elif model_type in ["VAR", "SVAR", "BVAR"]:
                 params['lag_order'] = st.slider("Lag order", 1, 4, 1)
-                st.info("VAR utilise les 2 premières variables disponibles")
             elif model_type == "ARDL":
                 params['lags'] = st.slider("Lags", 1, 12, 1)
             elif model_type == "Prophet":
@@ -1094,8 +1204,19 @@ def data_visualization_module():
                 params['trend'] = st.selectbox("Tendance", ['add', 'mul', None])
                 params['seasonal'] = st.selectbox("Saisonnalité", ['add', 'mul', None])
                 params['seasonal_periods'] = st.slider("Périodes saisonnières", 4, 24, 12)
+            elif model_type == "GARCH":
+                params['p'] = st.slider("p (GARCH)", 1, 3, 1)
+                params['q'] = st.slider("q (ARCH)", 1, 3, 1)
+            elif model_type == "MIDAS":
+                params['high_freq_lags'] = st.slider("Décalages haute fréquence", 2, 6, 3)
+            elif model_type == "LSTM":
+                params['units'] = st.slider("Unités LSTM", 10, 100, 50)
+                params['epochs'] = st.slider("Époques", 50, 500, 100)
+            elif model_type in ["XGBoost", "LightGBM"]:
+                params['n_estimators'] = st.slider("Nombre d'estimateurs", 10, 200, 100)
+                params['max_depth'] = st.slider("Profondeur max", 3, 15, 6)
 
-            # --- LOGIQUE D'ORIENTATION D'EXPORTATION POUR L'EXPORT GLOBAL (COL1) ---
+            # Options d'exportation
             st.divider()
             st.subheader("Options d'Exportation Globale")
             export_orientation = st.selectbox(
@@ -1108,60 +1229,70 @@ def data_visualization_module():
             )
             is_dates_in_rows = (export_orientation == "Dates en lignes / Variables en colonnes (Standard)")
             orientation_param = "dates_in_rows" if is_dates_in_rows else "dates_in_columns"
-            # --------------------------------------------------------------------
 
             if st.button("Lancer la prévision", type="primary", key="launch_forecast_btn"):
-                with st.spinner(f"Prévision de {indicator} en cours..."):
+                with st.spinner(f"Prévision de {indicator} avec {model_type} en cours..."):
                     series = df.set_index("Date")[indicator].dropna()
                     min_required = max(2, params.get('p', 1) + 1, 
                                      params.get('lag_order', 1) + 1, params.get('lags', 1) + 1)
                     if len(series) < min_required:
                         st.error(f"Données insuffisantes pour {model_type} (besoin de {min_required} points minimum)")
                     else:
-                        # 1. Prévision pour l'indicateur sélectionné
+                        # Prévision principale
                         forecast = forecast_variable(df[["Date", indicator]], indicator, periods, model_type, params)
                         future_dates = pd.date_range(start=df["Date"].max() + pd.offsets.DateOffset(months=1), periods=periods, freq='M')
                         
                         historical_df = pd.DataFrame({"Date": df["Date"], indicator: df[indicator], "Type": "Historique"})
-                        
                         forecast_df = pd.DataFrame({
                             "Date": future_dates, 
                             indicator: forecast, 
                             "Type": "Prévision"
                         })
-                        
                         full_df = pd.concat([historical_df, forecast_df], ignore_index=True)
                         
-                        # 2. Calcul du MAPE (Validation sur les 12 dernières périodes)
+                        # Calcul des métriques de performance
                         if len(series) >= 12:
                             train_size = len(series) - 12
                             train, test = series[:train_size], series[train_size:]
                             train_df = df[["Date", indicator]].iloc[:train_size].copy()
-                            # Pour le calcul du MAPE, on fait la prévision sur 12 périodes à partir de l'ensemble d'entraînement
                             train_forecast = forecast_variable(train_df, indicator, 12, model_type, params)
                             
-                            # Assurer que les longueurs correspondent pour le MAPE
                             if len(train_forecast) == len(test) and len(test) > 0:
-                                mape = mean_absolute_percentage_error(test, train_forecast) 
+                                mape, rmse, mae = calculate_model_metrics(test, train_forecast)
                             else:
-                                # Fallback ou MAPE par défaut si la validation est impossible
-                                mape = 0.5 # Mauvaise valeur par défaut pour alerter
+                                mape, rmse, mae = 0.5, np.nan, np.nan
                         else:
-                            mape = 0.5 # Mauvaise valeur par défaut si données trop courtes
-                            
+                            mape, rmse, mae = 0.5, np.nan, np.nan
+                        
+                        # Sauvegarde des résultats
                         st.session_state.forecast_data = full_df
                         st.session_state.mape = mape
+                        st.session_state.rmse = rmse
+                        st.session_state.mae = mae
                         st.session_state.forecast_variable = indicator
                         st.session_state.forecast_model = model_type
                         st.session_state.forecast_periods = periods
                         st.session_state.forecast_params = params
-                        st.toast("Prévision terminée!")
+                        
+                        # Ajout à la comparaison des modèles
+                        model_key = f"{model_type}_{indicator}_{datetime.datetime.now().strftime('%H%M%S')}"
+                        quality_label, quality_color = get_overall_quality(mape, rmse, mae)
+                        
+                        st.session_state.model_comparisons[model_key] = {
+                            'Modèle': model_type,
+                            'Variable': indicator,
+                            'MAPE': mape,
+                            'RMSE': rmse,
+                            'MAE': mae,
+                            'Qualité': quality_label,
+                            'Couleur': quality_color
+                        }
+                        
+                        st.toast(f"Prévision {model_type} terminée!")
 
-            # --- BOUTON EXPORT TOUT (INCHANGÉ) ---
+            # Bouton export tous
             if st.button("Générer Excel avec toutes les prévisions", key="export_all_forecasts_btn"):
                 with st.spinner("Génération des prévisions pour toutes les variables..."):
-                    
-                    # APPEL À LA FONCTION AVEC ORIENTATION pour TOUTES les variables
                     excel_df = generate_forecast_df(df, periods, model_type, params, orientation_param) 
                     
                     if not excel_df.empty:
@@ -1178,7 +1309,6 @@ def data_visualization_module():
                             )
                         st.success("Fichier Excel généré avec succès!")
 
-
         with col2:
             if "forecast_data" in st.session_state:
                 full_df = st.session_state.forecast_data
@@ -1187,7 +1317,7 @@ def data_visualization_module():
                 historical_data = full_df[full_df["Type"] == "Historique"]
                 forecast_data = full_df[full_df["Type"] == "Prévision"]
                 
-                # --- AFFICHAGE GRAPHIQUE INCHANGÉ ---
+                # Graphique de prévision principal
                 fig = go.Figure()
                 
                 fig.add_trace(go.Scatter(
@@ -1254,50 +1384,128 @@ def data_visualization_module():
                         borderpad=4
                     )
                 
-                st.plotly_chart(fig, use_container_width=True, config={
-                    'displayModeBar': True,
-                    'displaylogo': False,
-                    'modeBarButtonsToRemove': ['lasso2d', 'select2d'],
-                    'toImageButtonOptions': {
-                        'format': 'png',
-                        'filename': f'prevision_{indicator}_{st.session_state.forecast_model}',
-                        'height': 800,
-                        'width': 1400,
-                        'scale': 2
-                    }
-                })
+                st.plotly_chart(fig, use_container_width=True)
                 
-                # --- AFFICHAGE DU MAPE AVEC CODE COULEUR ---
+                # Affichage du MAPE
                 mape_value = st.session_state.mape
                 mape_html = get_mape_status_html(mape_value)
                 st.markdown(mape_html, unsafe_allow_html=True)
-                # --- FIN AFFICHAGE MAPE ---
                 
-                # --- LOGIQUE D'EXPORTATION PERSONNALISÉE (SECTION CORRIGÉE) ---
+                # NOUVELLE SECTION : COMPARAISON DES MODÈLES
+                st.divider()
+                st.subheader("📊 Comparaison des Modèles")
+                
+                if st.session_state.model_comparisons:
+                    # Préparation des données pour le tableau
+                    comparison_data = []
+                    for key, model_data in st.session_state.model_comparisons.items():
+                        if model_data['Variable'] == st.session_state.forecast_variable:
+                            comparison_data.append({
+                                'Modèle': model_data['Modèle'],
+                                'MAPE': model_data['MAPE'],
+                                'RMSE': model_data['RMSE'],
+                                'MAE': model_data['MAE'],
+                                'Qualité': model_data['Qualité']
+                            })
+                    
+                    if comparison_data:
+                        # Affichage du tableau
+                        comparison_df = create_comparison_table(comparison_data)
+                        st.dataframe(comparison_df, use_container_width=True)
+                        
+                        # Téléchargement du tableau
+                        csv = comparison_df.to_csv(index=False, encoding='utf-8-sig')
+                        st.download_button(
+                            label="📥 Télécharger la comparaison (CSV)",
+                            data=csv,
+                            file_name=f"comparaison_modeles_{st.session_state.forecast_variable}.csv",
+                            mime="text/csv"
+                        )
+                        
+                        # Graphique de comparaison multi-modèles
+                        st.subheader("📈 Comparaison Graphique des Modèles")
+                        
+                        selected_models = st.multiselect(
+                            "Modèles à comparer graphiquement",
+                            options=list(set([m['Modèle'] for m in comparison_data])),
+                            default=[st.session_state.forecast_model]
+                        )
+                        
+                        if selected_models:
+                            fig_comparison = go.Figure()
+                            
+                            # Ajout des données historiques
+                            historical_data = st.session_state.forecast_data[st.session_state.forecast_data["Type"] == "Historique"]
+                            fig_comparison.add_trace(go.Scatter(
+                                x=historical_data["Date"],
+                                y=historical_data[st.session_state.forecast_variable],
+                                mode='lines',
+                                name='Historique',
+                                line=dict(color='green', width=2)
+                            ))
+                            
+                            # Couleurs pour les différents modèles
+                            colors = ['brown', 'blue', 'orange', 'purple', 'red', 'teal']
+                            
+                            for i, model_name in enumerate(selected_models):
+                                # Recalcul des prévisions pour chaque modèle sélectionné
+                                model_params = st.session_state.forecast_params if model_name == st.session_state.forecast_model else {}
+                                model_forecast = forecast_variable(
+                                    df[["Date", st.session_state.forecast_variable]], 
+                                    st.session_state.forecast_variable, 
+                                    st.session_state.forecast_periods, 
+                                    model_name, 
+                                    model_params
+                                )
+                                
+                                future_dates = pd.date_range(
+                                    start=df["Date"].max() + pd.offsets.DateOffset(months=1), 
+                                    periods=st.session_state.forecast_periods, 
+                                    freq='M'
+                                )
+                                
+                                color = colors[i % len(colors)]
+                                fig_comparison.add_trace(go.Scatter(
+                                    x=future_dates,
+                                    y=model_forecast,
+                                    mode='lines',
+                                    name=f'Prévision {model_name}',
+                                    line=dict(color=color, width=2, dash='dash')
+                                ))
+                            
+                            fig_comparison.update_layout(
+                                title=f"Comparaison des Prévisions - {st.session_state.forecast_variable}",
+                                xaxis_title="Date",
+                                yaxis_title="Valeur",
+                                height=500,
+                                showlegend=True,
+                                font_family="Garamond",
+                                hovermode='x unified'
+                            )
+                            
+                            st.plotly_chart(fig_comparison, use_container_width=True)
+                
+                else:
+                    st.info("Lancez plusieurs prévisions pour voir la comparaison des modèles")
+
+                # Options d'exportation personnalisée
                 st.divider()
                 st.subheader("Options d'Exportation Personnalisée")
                 
-                # 1. Sélection des variables 
                 all_vars = df.columns.drop("Date").tolist()
-                
-                # **DEBUT DE LA CORRECTION : Détermination de la valeur par défaut sécurisée**
                 safe_default_vars = []
                 if 'forecast_variable' in st.session_state and st.session_state.forecast_variable in all_vars:
-                    # Utiliser la variable de la dernière prévision si elle est valide
                     safe_default_vars = [st.session_state.forecast_variable]
                 elif len(all_vars) > 0:
-                    # Fallback sur la première variable si aucune prévision n'a été lancée ou si la clé est invalide
                     safe_default_vars = [all_vars[0]]
 
                 selected_export_vars = st.multiselect(
                     "Sélectionner les variables à inclure dans l'export",
                     options=all_vars,
-                    default=safe_default_vars, # Utilisation de la valeur sécurisée
+                    default=safe_default_vars,
                     key="export_vars_selection"
                 )
-                # **FIN DE LA CORRECTION**
                 
-                # 2. Option de transposition
                 export_orientation_unique = st.radio(
                     "Transposition des données dans l'Excel", 
                     ["Dates en lignes / Variables en colonnes", "Variables en lignes / Dates en colonnes"],
@@ -1306,19 +1514,12 @@ def data_visualization_module():
                 
                 orientation_param_unique = "dates_in_rows" if export_orientation_unique.startswith("Dates en lignes") else "dates_in_columns"
 
-                # 3. Bouton d'export personnalisé
                 if st.button("Exporter les prévisions sélectionnées", key="export_single_forecast_btn"):
                     if not selected_export_vars:
                         st.error("Veuillez sélectionner au moins une variable à exporter.")
                     else:
                         with st.spinner(f"Génération des prévisions pour {len(selected_export_vars)} variables..."):
-                            
-                            # Créer un DataFrame ne contenant que les variables sélectionnées pour l'export.
                             df_export = df[["Date"] + selected_export_vars].copy()
-                            
-                            # Utiliser la fonction multi-variable forecast `generate_forecast_df`
-                            # Elle va re-calculer la prévision pour toutes les variables sélectionnées 
-                            # en utilisant les paramètres du dernier modèle exécuté.
                             excel_df = generate_forecast_df(
                                 df=df_export, 
                                 periods=st.session_state.forecast_periods, 
@@ -1341,13 +1542,12 @@ def data_visualization_module():
                                     )
                                 st.success("Fichier Excel généré avec succès!")
                             else:
-                                st.error("Erreur lors de la génération du fichier Excel. Vérifiez les données ou les paramètres.")
-                # --- FIN LOGIQUE D'EXPORTATION PERSONNALISÉE ---
+                                st.error("Erreur lors de la génération du fichier Excel.")
 
             else:
-                st.info("Configurez et lancez une prévision")
+                st.info("Configurez et lancez une prévision pour voir les résultats")
 
-# === DATA COLLECTION MODULE ===
+# === MODULE DE COLLECTE DES DONNÉES (inchangé) ===
 def detect_data_orientation(df):
     first_row = df.iloc[0, 1:].astype(str)
     first_col = df.iloc[1:, 0].astype(str)
@@ -1528,7 +1728,7 @@ st.logo(
 
 # === NAVIGATION ===
 with st.sidebar:
-    st.title("🎯 Prévision")
+    st.title("🎯 Prévision Avancée")
     st.divider()
     
     if "navigation_module" not in st.session_state:
@@ -1565,6 +1765,7 @@ if st.session_state.navigation_module == "Data":
 elif st.session_state.navigation_module == "Prévision":
     data_visualization_module()
 
+# === FOOTER ===
 st.markdown("""
 <div class="custom-footer">
   <p class="footnote">Ramanambonona Ambinintsoa, Ph.D</p>
