@@ -585,6 +585,35 @@ def recursive_ml_forecast(
 # -----------------------------------------------------------------------------
 # MOTEUR DE PRÉVISION
 # -----------------------------------------------------------------------------
+def resolve_model_variables(
+    target: str,
+    model_name: str,
+    params: Dict[str, Any],
+    exog_vars: Optional[List[str]] = None,
+) -> Tuple[List[str], List[str]]:
+    """Sépare les variables endogènes du système des vraies variables exogènes."""
+    incoming_exog = list(dict.fromkeys(exog_vars or []))
+
+    if model_name in {"VAR", "VECM"}:
+        system_vars = list(dict.fromkeys(params.get("system_vars", [target])))
+        if target not in system_vars:
+            system_vars = [target] + system_vars
+    else:
+        system_vars = [target]
+
+    if model_name == "VAR":
+        # Le VAR implémenté ici est un système entièrement endogène.
+        effective_exog = []
+    elif model_name == "VECM":
+        # Les exogènes d'un VECM ne viennent que de l'option VECMX explicite.
+        effective_exog = list(dict.fromkeys(params.get("vecm_exog_vars", [])))
+        effective_exog = [v for v in effective_exog if v not in system_vars]
+    else:
+        effective_exog = incoming_exog
+
+    return system_vars, effective_exog
+
+
 def forecast_model(
     df: pd.DataFrame,
     target: str,
@@ -594,84 +623,37 @@ def forecast_model(
     exog_vars: Optional[List[str]] = None,
     future_exog: Optional[pd.DataFrame] = None,
 ) -> ForecastResult:
-    exog_vars = list(dict.fromkeys(exog_vars or []))
-
-    system_model = model_name in {"VAR", "VECM"}
-
-    # Variables endogènes du système
-    if system_model:
-        system_vars = list(
-            dict.fromkeys(
-                params.get("system_vars", [target])
-            )
-        )
-
-        if target not in system_vars:
-            system_vars = [target] + system_vars
-
-    else:
-        system_vars = [target]
-
-    # Toutes les variables nécessaires à l'estimation
-    needed = list(
-        dict.fromkeys(
-            system_vars + exog_vars
-        )
+    # Résolution unique des variables :
+    # - VAR : system_vars seulement, aucune exogène ;
+    # - VECM : system_vars + exogènes uniquement si VECMX est explicitement activé ;
+    # - autres modèles : exog_vars conserve son rôle habituel.
+    system_vars, exog_vars = resolve_model_variables(
+        target, model_name, params, exog_vars
     )
 
+    needed = list(dict.fromkeys(system_vars + exog_vars))
     d = clean_model_data(df, needed)
 
     if len(d) < 10:
-        raise ValueError(
-            "Au moins 10 observations complètes sont requises."
-        )
+        raise ValueError("Au moins 10 observations complètes sont requises.")
 
     dates = future_dates_from_df(d, periods)
+    y = d.set_index("Date")[target].astype(float)
 
-    y = (
-        d.set_index("Date")[target]
-        .astype(float)
-    )
+    # X contient uniquement de vraies variables exogènes.
+    X = d.set_index("Date")[exog_vars].astype(float) if exog_vars else None
 
-    # -------------------------------------------------------------------------
-    # VARIABLES EXOGÈNES
-    # -------------------------------------------------------------------------
-
-    # Pour VAR standard : aucune variable exogène externe n'est prévue ici.
-    # Les variables du système sont toutes endogènes.
-    if model_name == "VAR" and exog_vars:
-        raise ValueError(
-            "Le VAR standard de cette application traite les variables "
-            "sélectionnées comme endogènes. "
-            "Retirez les variables exogènes externes."
-        )
-
-    # X représente uniquement de vraies variables exogènes.
-    X = (
-        d.set_index("Date")[exog_vars].astype(float)
-        if exog_vars
-        else None
-    )
-
-    # Un scénario futur est nécessaire uniquement lorsqu'il existe
-    # de vraies variables exogènes.
+    # Un scénario futur n'est requis que lorsqu'il existe de vraies exogènes.
+    # Donc : jamais pour VAR standard, jamais pour VECM standard,
+    # uniquement pour VECMX si vecm_exog_vars n'est pas vide.
     if exog_vars:
-
         if future_exog is None:
             raise ValueError(
                 "Un scénario futur des variables exogènes est requis "
                 f"pour le modèle {model_name}."
             )
-
-        Xf = validate_future_exog(
-            future_exog,
-            exog_vars,
-            periods
-        )
-
-        # Alignement exact avec les dates de prévision
+        Xf = validate_future_exog(future_exog, exog_vars, periods)
         Xf.index = dates
-
     else:
         Xf = None
 
@@ -731,10 +713,9 @@ def forecast_model(
 
     # 4. VAR
     if model_name == "VAR":
-        system_vars = params.get("system_vars", [target] + exog_vars)
-        if target not in system_vars:
-            system_vars = [target] + system_vars
-        vdf = clean_model_data(df, system_vars).set_index("Date")[system_vars]
+        # system_vars est déjà résolu ; les éventuels états exogènes résiduels
+        # sont ignorés par construction pour le VAR standard.
+        vdf = d.set_index("Date")[system_vars].astype(float)
         lag = int(params.get("lag_order", 1))
         auto_ic = params.get("auto_ic", "Manuel")
         mdl = VAR(vdf)
@@ -755,30 +736,14 @@ def forecast_model(
 
     # 5. VECM
     if model_name == "VECM":
-        system_vars = list(
-            dict.fromkeys(
-                params.get("system_vars", [target])
-            )
-        )
-
-        if target not in system_vars:
-            system_vars = [target] + system_vars
-
         if len(system_vars) < 2:
-            raise ValueError(
-                "Le VECM nécessite au moins deux variables endogènes."
-            )
+            raise ValueError("Le VECM nécessite au moins deux variables endogènes.")
 
-        # Les variables du système sont endogènes et sont prévues conjointement.
+        # Variables endogènes du système : elles sont prévues conjointement.
         vdf = d.set_index("Date")[system_vars].astype(float)
 
-        # Les variables de exog_vars sont, le cas échéant, strictement exogènes
-        # (configuration VECMX) et ne sont donc pas prévues par le système.
-        X_vecm = (
-            d.set_index("Date")[exog_vars].astype(float)
-            if exog_vars
-            else None
-        )
+        # Variables strictement exogènes : présentes uniquement en configuration VECMX.
+        X_vecm = d.set_index("Date")[exog_vars].astype(float) if exog_vars else None
 
         fit = VECM(
             endog=vdf,
@@ -790,21 +755,14 @@ def forecast_model(
         ).fit()
 
         if exog_vars:
-            if Xf is None:
-                raise ValueError(
-                    "Le VECMX contient des variables exogènes. "
-                    "Un scénario futur doit être fourni pour celles-ci."
-                )
+            # VECMX : seules les vraies exogènes exigent un scénario futur.
             vals = fit.predict(steps=periods, exog_fc=Xf)
         else:
-            # VECM standard : aucun scénario futur externe n'est requis.
+            # VECM standard : aucune variable du système n'a besoin d'être fournie dans le futur.
             vals = fit.predict(steps=periods)
 
         idx = system_vars.index(target)
-        resid = pd.Series(
-            fit.resid[:, idx],
-            index=vdf.index[-len(fit.resid):],
-        )
+        resid = pd.Series(fit.resid[:, idx], index=vdf.index[-len(fit.resid):])
 
         return ForecastResult(
             pd.Series(vals[:, idx], dates),
@@ -992,31 +950,23 @@ def backtest_holdout(
     scenario_method: str,
     exog_evaluation_mode: str = "Exogènes observées (conditionnel)",
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
-    if model_name in {"VAR", "VECM"}:
-        system_vars = list(
-            dict.fromkeys(
-                params.get("system_vars", [target])
-            )
-        )
-        if target not in system_vars:
-            system_vars = [target] + system_vars
-        needed = list(dict.fromkeys(system_vars + exog_vars))
-    else:
-        needed = list(dict.fromkeys([target] + exog_vars))
-
+    system_vars, effective_exog_vars = resolve_model_variables(
+        target, model_name, params, exog_vars
+    )
+    needed = list(dict.fromkeys(system_vars + effective_exog_vars))
     d = clean_model_data(df, needed)
     if len(d) <= test_size + 12:
         raise ValueError("Historique insuffisant pour le backtest demandé.")
     train = d.iloc[:-test_size].copy()
     test = d.iloc[-test_size:].copy()
-    if exog_vars:
+    if effective_exog_vars:
         if exog_evaluation_mode.startswith("Exogènes observées"):
-            future_x = test.set_index("Date")[exog_vars]
+            future_x = test.set_index("Date")[effective_exog_vars]
         else:
-            future_x = build_future_exog(train, exog_vars, test_size, scenario_method)
+            future_x = build_future_exog(train, effective_exog_vars, test_size, scenario_method)
     else:
         future_x = None
-    res = forecast_model(train, target, test_size, model_name, params, exog_vars, future_x)
+    res = forecast_model(train, target, test_size, model_name, params, effective_exog_vars, future_x)
     bt = pd.DataFrame({"Date": test["Date"].values, "Observé": test[target].values, "Prévu": res.forecast.values})
     _, s, _ = infer_frequency(train["Date"])
     mt = metrics_table(bt["Observé"], bt["Prévu"], train[target].values, seasonality=s)
@@ -1035,18 +985,10 @@ def rolling_origin_backtest(
     exog_evaluation_mode: str = "Exogènes observées (conditionnel)",
 ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """Validation expanding-window : chaque fold est strictement postérieur à son échantillon d'estimation."""
-    if model_name in {"VAR", "VECM"}:
-        system_vars = list(
-            dict.fromkeys(
-                params.get("system_vars", [target])
-            )
-        )
-        if target not in system_vars:
-            system_vars = [target] + system_vars
-        needed = list(dict.fromkeys(system_vars + exog_vars))
-    else:
-        needed = list(dict.fromkeys([target] + exog_vars))
-
+    system_vars, effective_exog_vars = resolve_model_variables(
+        target, model_name, params, exog_vars
+    )
+    needed = list(dict.fromkeys(system_vars + effective_exog_vars))
     d = clean_model_data(df, needed)
     horizon, folds = int(horizon), int(folds)
     min_train = max(18, 3 * horizon)
@@ -1063,14 +1005,14 @@ def rolling_origin_backtest(
         test = d.iloc[train_end:train_end + horizon].copy()
         if len(test) < horizon:
             continue
-        if exog_vars:
+        if effective_exog_vars:
             if exog_evaluation_mode.startswith("Exogènes observées"):
-                future_x = test.set_index("Date")[exog_vars]
+                future_x = test.set_index("Date")[effective_exog_vars]
             else:
-                future_x = build_future_exog(train, exog_vars, horizon, scenario_method)
+                future_x = build_future_exog(train, effective_exog_vars, horizon, scenario_method)
         else:
             future_x = None
-        res = forecast_model(train, target, horizon, model_name, params, exog_vars, future_x)
+        res = forecast_model(train, target, horizon, model_name, params, effective_exog_vars, future_x)
         fold_df = pd.DataFrame({
             "Fold": f + 1, "Date": test["Date"].values, "Observé": test[target].values, "Prévu": res.forecast.values
         })
@@ -1550,6 +1492,10 @@ if page == "Prévisions":
                         "au système endogène."
                     )
 
+            # Source unique de vérité pour les exogènes du VECM/VECMX.
+            # Si l'option VECMX est désactivée, la liste reste explicitement vide.
+            params["vecm_exog_vars"] = list(dict.fromkeys(exog_vars))
+
         # VAR standard :
         # aucune variable externe n'est considérée comme exogène.
         elif model_name == "VAR":
@@ -1699,21 +1645,28 @@ if page == "Prévisions":
                 params["max_iter"] = st.slider("Itérations max.", 300, 3000, 1200, 100)
 
     # Scénario exogène
+    # Liste exogène réellement transmise au moteur, séparée des variables endogènes du système.
+    if model_name == "VAR":
+        model_exog_vars = []
+    elif model_name == "VECM":
+        model_exog_vars = list(dict.fromkeys(params.get("vecm_exog_vars", [])))
+    else:
+        model_exog_vars = list(dict.fromkeys(exog_vars))
+
     future_exog = None
     scenario_method = "Dernière valeur"
-    requires_future_scenario = bool(exog_vars) and model_name != "VAR"
-    if requires_future_scenario:
+    if model_exog_vars:
         with st.expander("Scénario futur des variables exogènes", expanded=True):
             c1, c2 = st.columns([1, 1])
             with c1:
                 scenario_method = st.selectbox("Méthode de projection initiale", ["Dernière valeur", "Moyenne récente", "Tendance linéaire", "Croissance moyenne"])
             with c2:
                 rolling_window = st.slider("Fenêtre de calcul", 3, min(36, max(3, len(df)//2)), min(12, max(3, len(df)//2)))
-            auto_future = build_future_exog(df, exog_vars, int(periods), scenario_method, rolling_window)
+            auto_future = build_future_exog(df, model_exog_vars, int(periods), scenario_method, rolling_window)
             editable = auto_future.reset_index()
             future_edit = st.data_editor(editable, width="stretch", hide_index=True, num_rows="fixed", key=f"future_{target}_{model_name}_{periods}")
             try:
-                future_exog = validate_future_exog(future_edit, exog_vars, int(periods))
+                future_exog = validate_future_exog(future_edit, model_exog_vars, int(periods))
             except Exception as e:
                 st.error(str(e))
 
@@ -1737,9 +1690,9 @@ if page == "Prévisions":
     if run_forecast:
         try:
             with st.spinner("Estimation du modèle et génération du scénario..."):
-                result = forecast_model(df, target, int(periods), model_name, params, exog_vars, future_exog)
+                result = forecast_model(df, target, int(periods), model_name, params, model_exog_vars, future_exog)
                 st.session_state.forecast_result = result
-                st.session_state.forecast_context = {"target": target, "model_name": model_name, "params": params, "exog_vars": exog_vars, "future_exog": future_exog, "periods": int(periods), "scenario_method": scenario_method}
+                st.session_state.forecast_context = {"target": target, "model_name": model_name, "params": params, "exog_vars": model_exog_vars, "future_exog": future_exog, "periods": int(periods), "scenario_method": scenario_method}
             st.success("Prévision calculée.")
         except Exception as e:
             st.error(f"Échec de l'estimation : {e}")
@@ -1748,7 +1701,7 @@ if page == "Prévisions":
         try:
             with st.spinner("Validation rolling-origin en cours..."):
                 bt, mt, fold_mt = rolling_origin_backtest(
-                    df, target, model_name, params, exog_vars, bt_horizon, bt_folds, scenario_method, bt_exog_mode
+                    df, target, model_name, params, model_exog_vars, bt_horizon, bt_folds, scenario_method, bt_exog_mode
                 )
             st.session_state.backtest = bt
             st.session_state.backtest_metrics = mt
