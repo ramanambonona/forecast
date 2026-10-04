@@ -1236,7 +1236,7 @@ st.logo(
 
 # En-tête sobre : aucun bandeau coloré en haut.
 st.markdown(
-    '<div style="margin:.15rem 0 1rem 0"><h1 style="margin:0">RAMA Forecast Lab</h1>'
+    '<div style="margin:.15rem 0 1rem 0"><h1 style="margin:0">RAMA Econometrics Lab</h1>'
     '<div style="color:#63756E;font-size:.98rem">Econometrics · Forecasting · Machine learning</div></div>',
     unsafe_allow_html=True,
 )
