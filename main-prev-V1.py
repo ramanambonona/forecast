@@ -65,7 +65,7 @@ except Exception:
 # CONFIGURATION
 # -----------------------------------------------------------------------------
 st.set_page_config(
-    page_title="RAMA Forecast Lab",
+    page_title="RAMA Econometrics Lab",
     page_icon="🔬",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -594,19 +594,84 @@ def forecast_model(
     exog_vars: Optional[List[str]] = None,
     future_exog: Optional[pd.DataFrame] = None,
 ) -> ForecastResult:
-    exog_vars = exog_vars or []
-    needed = [target] + exog_vars
+    exog_vars = list(dict.fromkeys(exog_vars or []))
+
+    system_model = model_name in {"VAR", "VECM"}
+
+    # Variables endogènes du système
+    if system_model:
+        system_vars = list(
+            dict.fromkeys(
+                params.get("system_vars", [target])
+            )
+        )
+
+        if target not in system_vars:
+            system_vars = [target] + system_vars
+
+    else:
+        system_vars = [target]
+
+    # Toutes les variables nécessaires à l'estimation
+    needed = list(
+        dict.fromkeys(
+            system_vars + exog_vars
+        )
+    )
+
     d = clean_model_data(df, needed)
+
     if len(d) < 10:
-        raise ValueError("Au moins 10 observations complètes sont requises.")
+        raise ValueError(
+            "Au moins 10 observations complètes sont requises."
+        )
+
     dates = future_dates_from_df(d, periods)
-    y = d.set_index("Date")[target].astype(float)
-    X = d.set_index("Date")[exog_vars].astype(float) if exog_vars else None
+
+    y = (
+        d.set_index("Date")[target]
+        .astype(float)
+    )
+
+    # -------------------------------------------------------------------------
+    # VARIABLES EXOGÈNES
+    # -------------------------------------------------------------------------
+
+    # Pour VAR standard : aucune variable exogène externe n'est prévue ici.
+    # Les variables du système sont toutes endogènes.
+    if model_name == "VAR" and exog_vars:
+        raise ValueError(
+            "Le VAR standard de cette application traite les variables "
+            "sélectionnées comme endogènes. "
+            "Retirez les variables exogènes externes."
+        )
+
+    # X représente uniquement de vraies variables exogènes.
+    X = (
+        d.set_index("Date")[exog_vars].astype(float)
+        if exog_vars
+        else None
+    )
+
+    # Un scénario futur est nécessaire uniquement lorsqu'il existe
+    # de vraies variables exogènes.
     if exog_vars:
+
         if future_exog is None:
-            raise ValueError("Un scénario futur des variables exogènes est requis.")
-        Xf = validate_future_exog(future_exog, exog_vars, periods)
+            raise ValueError(
+                "Un scénario futur des variables exogènes est requis "
+                f"pour le modèle {model_name}."
+            )
+
+        Xf = validate_future_exog(
+            future_exog,
+            exog_vars,
+            periods
+        )
+
+        # Alignement exact avec les dates de prévision
         Xf.index = dates
+
     else:
         Xf = None
 
